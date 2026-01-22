@@ -1,0 +1,88 @@
+# Gradle
+.gradle/
+build/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# Android Studio
+.idea/
+*.iml
+.idea_modules/
+*.ipr
+*.iws
+.DS_Store
+local.properties
+
+# Android
+*.apk
+*.ap_
+*.dex
+captures/
+*.class
+
+# iOS/Xcode
+xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+*.xccheckout
+*.xcscmblueprint
+*.hmap
+*.ipa
+*.xcuserstate
+project.xcworkspace
+
+# Kotlin Native
+*.klib
+
+# Kotlin Multiplatform
+composeApp/build/
+krelay/build/
+iosApp/build/
+shared/build/
+
+# Build outputs
+bin/
+gen/
+out/
+
+# Package Files
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Log files
+*.log
+
+# Secrets and local config
+secrets.properties
+google-services.json
+GoogleService-Info.plist
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE - VSCode
+.vscode/
+*.code-workspace
+
+# Misc
+.externalNativeBuild
+.cxx
