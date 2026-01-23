@@ -316,6 +316,7 @@ See [@SuperAppWarning](krelay/src/commonMain/kotlin/dev/brewkits/krelay/SuperApp
 
 ### 🎯 Understanding KRelay
 - **[Positioning](docs/POSITIONING.md)** - Why KRelay exists (The Glue Code Standard)
+- **[Roadmap](ROADMAP.md)** - Future development plans (Desktop, Web, v2.0)
 
 ---
 

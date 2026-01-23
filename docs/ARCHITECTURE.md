@@ -8,10 +8,11 @@ This document provides a deep dive into KRelay's internal architecture and desig
 2. [Core Components](#core-components)
 3. [Data Flow](#data-flow)
 4. [Platform Implementations](#platform-implementations)
-5. [Thread Safety](#thread-safety)
-6. [Memory Management](#memory-management)
-7. [Queue & Replay Mechanism](#queue--replay-mechanism)
-8. [Design Decisions](#design-decisions)
+5. [Roadmap](#roadmap)
+6. [Thread Safety](#thread-safety)
+7. [Memory Management](#memory-management)
+8. [Queue & Replay Mechanism](#queue--replay-mechanism)
+9. [Design Decisions](#design-decisions)
 
 ## Overview
 
@@ -268,6 +269,30 @@ actual fun runOnMain(block: () -> Unit) {
 - Direct execution on main thread
 - GCD handles queue management
 - Compatible with Objective-C interop
+
+## Roadmap
+
+KRelay follows a strategic development plan focused on reliability, expansion, and enterprise readiness. See [ROADMAP.md](ROADMAP.md) for detailed plans.
+
+### Strategic Phases
+
+**Phase 1: Launch & Education** (Months 1-2)
+- Maven Central publishing
+- Community education content
+- Visual proof demos
+- "The Glue Code Standard" messaging
+
+**Phase 2: Expansion** (Months 3-6) - v1.1, v1.2
+- Desktop/Web platform support (JVM, Wasm/JS)
+- Debugging tools and logging
+- Performance optimization
+
+**Phase 3: Enterprise Ready** (6+ months) - v2.0
+- Instance-based API for modularization
+- Dependency Injection support (Koin/Hilt)
+- Super App architecture patterns
+
+For complete roadmap details, see [ROADMAP.md](ROADMAP.md).
 
 ## Thread Safety
 
