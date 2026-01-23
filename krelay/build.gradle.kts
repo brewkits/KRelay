@@ -7,7 +7,7 @@ plugins {
     id("signing")
 }
 
-group = "dev.brewkits.krelay"
+group = "dev.brewkits"
 version = "1.0.0"
 
 kotlin {
@@ -64,9 +64,9 @@ android {
 publishing {
     publications {
         withType<MavenPublication> {
-            groupId = "dev.brewkits.krelay"
+            groupId = "dev.brewkits"
             artifactId = "krelay"
-            version = "1.1.0"
+            version = project.version.toString()
 
             pom {
                 name.set("KRelay")
@@ -98,8 +98,15 @@ publishing {
     }
 
     repositories {
+        // Local staging repository for verification before publishing
         maven {
-            name = "sonatype"
+            name = "MavenCentralLocal"
+            url = uri("${layout.buildDirectory.get()}/maven-central-staging")
+        }
+
+        // Maven Central (Sonatype OSSRH)
+        maven {
+            name = "OSSRH"
             val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
             val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
             url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
@@ -113,8 +120,16 @@ publishing {
 }
 
 signing {
-    // Sign publications if credentials are available
-    if (findProperty("signing.keyId") != null) {
+    // Support both in-memory key (signing.key) and keyring (signing.keyId)
+    val signingKey = findProperty("signing.key")?.toString() ?: System.getenv("SIGNING_KEY")
+    val signingPassword = findProperty("signing.password")?.toString() ?: System.getenv("SIGNING_PASSWORD")
+
+    if (signingKey != null && signingPassword != null) {
+        // Use in-memory key (recommended for CI/CD)
+        useInMemoryPgpKeys(signingKey, signingPassword)
+        sign(publishing.publications)
+    } else if (findProperty("signing.keyId") != null) {
+        // Use traditional GPG keyring
         sign(publishing.publications)
     }
 }
