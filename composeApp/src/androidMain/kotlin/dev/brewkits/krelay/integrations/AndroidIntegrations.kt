@@ -165,12 +165,20 @@ class AndroidBiometricImpl(
  * Android implementation using Play Core Review
  */
 class AndroidSystemInteractionImpl(
-    private val activity: Activity
+    private val activity: Activity,
+    private val context: android.content.Context
 ) : SystemInteractionFeature {
 
     override fun requestInAppReview() {
         println("\n⭐ [AndroidSystemInteractionImpl] Requesting in-app review...")
         println("   → Using Google Play Core ReviewManager")
+
+        // Show toast to confirm action (since review dialog may not show in debug)
+        android.widget.Toast.makeText(
+            context,
+            "📱 Review request sent (may not show in debug builds)",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
 
         val manager = ReviewManagerFactory.create(activity)
         val request = manager.requestReviewFlow()
@@ -179,11 +187,31 @@ class AndroidSystemInteractionImpl(
             if (task.isSuccessful) {
                 val reviewInfo = task.result
                 println("   ✅ Review flow ready, launching dialog...")
-                manager.launchReviewFlow(activity, reviewInfo).addOnCompleteListener {
-                    println("   ✓ Review flow completed")
+
+                manager.launchReviewFlow(activity, reviewInfo).addOnCompleteListener { launchTask ->
+                    if (launchTask.isSuccessful) {
+                        println("   ✓ Review flow completed successfully")
+                        android.widget.Toast.makeText(
+                            context,
+                            "✅ Thanks for reviewing!",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        println("   ⚠️ Review dialog not shown (debug build or quota exceeded)")
+                        android.widget.Toast.makeText(
+                            context,
+                            "ℹ️ Review not available (debug mode or quota limit)",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
             } else {
                 println("   ❌ Review flow failed: ${task.exception?.message}")
+                android.widget.Toast.makeText(
+                    context,
+                    "❌ Review not available: ${task.exception?.message}",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
@@ -297,7 +325,7 @@ actual fun rememberSystemInteractionImplementation(): SystemInteractionFeature {
         ?: throw IllegalStateException("Context must be Activity")
 
     return remember {
-        AndroidSystemInteractionImpl(activity)
+        AndroidSystemInteractionImpl(activity, context)
     }
 }
 

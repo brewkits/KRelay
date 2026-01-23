@@ -32,27 +32,21 @@ class ConcurrentOperationsScenarioTest {
     class ConcurrentToast : ToastFeature {
         val messages = mutableListOf<String>()
         override fun show(message: String) {
-            synchronized(messages) {
-                messages.add(message)
-            }
+            messages.add(message)
         }
     }
 
     class ConcurrentAnalytics : AnalyticsFeature {
         val events = mutableListOf<String>()
         override fun track(event: String) {
-            synchronized(events) {
-                events.add(event)
-            }
+            events.add(event)
         }
     }
 
     class ConcurrentNavigation : NavigationFeature {
         val routes = mutableListOf<String>()
         override fun navigate(route: String) {
-            synchronized(routes) {
-                routes.add(route)
-            }
+            routes.add(route)
         }
     }
 

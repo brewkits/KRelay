@@ -190,7 +190,7 @@ class MultiFeatureCoordinationDemo {
         }
 
         private fun handlePaymentSuccess() {
-            val transactionId = "TXN-${System.currentTimeMillis()}"
+            val transactionId = "TXN-${kotlin.random.Random.nextLong(100000, 999999)}"
 
             // Step 1: Show success
             KRelay.dispatchWithPriority<PaymentFeature>(ActionPriority.HIGH) {

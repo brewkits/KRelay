@@ -1,204 +1,162 @@
 # KRelay Documentation
 
-Complete documentation for KRelay - The Native Interop Bridge for Kotlin Multiplatform.
+> Complete documentation for KRelay - The Glue Code Standard for Kotlin Multiplatform
 
-## 📚 Documentation Index
+---
 
-### Getting Started
-- **[Main README](../README.md)** - Overview, quick start, and core features
-  - The Three Superpowers of KRelay
-  - Installation & setup
-  - Quick start guide
-  - Use cases & examples
+## 📚 Getting Started
 
-### In-Depth Guides
+Start here to understand KRelay and get it working in your project:
 
-#### 1. [Architecture Guide](ARCHITECTURE.md)
-Deep dive into KRelay's internal design:
-- Core components (Registry, Queue, WeakRef)
-- Data flow and lifecycle
-- Platform implementations (Android, iOS)
-- Thread safety mechanisms
-- Memory management strategy
-- Design decisions and trade-offs
-- **Integration Patterns with Navigation Libraries**
-  - Voyager integration architecture
-  - Decompose integration patterns
-  - Compose Navigation integration
-  - Testing strategies
-  - Migration guide
+1. **[Main README](../README.md)** - Overview, Quick Start, and Key Features
+2. **[Integration Guides](INTEGRATION_GUIDES.md)** - How to integrate with Voyager, Moko, Peekaboo, etc.
+3. **[Quick Reference](QUICK_REFERENCE.md)** - Complete API documentation
+4. **[Known Issues](KNOWN_ISSUES.md)** ⚠️ - Current known issues and workarounds
 
-#### 2. [Integration Guide](INTEGRATION_GUIDE.md)
-Step-by-step integration with popular navigation libraries:
-- **Voyager Integration**
-  - Complete working example
-  - ViewModels, Screens, and Navigation setup
-  - Testing best practices
-- **Decompose Integration**
-  - Component-based architecture
-  - Lifecycle-aware navigation
-  - Child components pattern
-- **Compose Navigation Integration**
-  - NavController setup
-  - Type-safe navigation
-  - Deep linking support
+---
 
-#### 3. [Usage Guide](USAGE_GUIDE.md)
-Practical patterns and real-world examples:
-- Common use cases
-- Advanced patterns
-- Error handling
-- Performance optimization
-- Best practices
+## 🎯 Core Documentation
 
-#### 4. [Testing Guide](TESTING.md)
-Comprehensive testing strategies:
-- Unit testing ViewModels
-- Integration testing
-- Mock implementations
-- Test scenarios (rotation, background/foreground)
+### Essential Guides
 
-#### 5. [Quick Reference](QUICK_REFERENCE.md)
-Cheat sheet for quick lookup:
-- API reference
-- Common patterns
-- Code snippets
+- **[Integration Guides](INTEGRATION_GUIDES.md)** *(790 lines)*
+  - Universal 4-step pattern
+  - Moko Permissions, Moko Biometry
+  - Voyager, Decompose, Compose Navigation
+  - Peekaboo, Play Core/StoreKit, Firebase Analytics
+  - Testing integrations
 
-## 🎯 Documentation by Use Case
+- **[Anti-Patterns](ANTI_PATTERNS.md)** *(669 lines)*
+  - What NOT to use KRelay for
+  - Real Super App scenarios
+  - Critical vs Non-critical operations
+  - When to use WorkManager instead
 
-### "I want to integrate KRelay with my navigation library"
-→ Read: [Integration Guide](INTEGRATION_GUIDE.md)
+- **[Testing Guide](TESTING.md)** *(799 lines)*
+  - Unit testing ViewModels with KRelay
+  - Mock implementations
+  - Testing patterns and examples
 
-**Quick Links:**
-- [Voyager Integration](INTEGRATION_GUIDE.md#voyager-integration)
-- [Decompose Integration](INTEGRATION_GUIDE.md#decompose-integration)
-- [Compose Navigation](INTEGRATION_GUIDE.md#compose-navigation-integration)
+- **[Managing Warnings](MANAGING_WARNINGS.md)** *(427 lines)*
+  - Understanding @ProcessDeathUnsafe
+  - Understanding @SuperAppWarning
+  - How to suppress warnings at module level
+  - Best practices for opt-in annotations
 
-### "I want to understand how KRelay works internally"
-→ Read: [Architecture Guide](ARCHITECTURE.md)
+---
 
-**Quick Links:**
-- [Core Components](ARCHITECTURE.md#core-components)
-- [Data Flow](ARCHITECTURE.md#data-flow)
-- [Memory Management](ARCHITECTURE.md#memory-management)
-- [Thread Safety](ARCHITECTURE.md#thread-safety)
+## 🏗️ Technical Deep Dives
 
-### "I want practical examples and patterns"
-→ Read: [Usage Guide](USAGE_GUIDE.md)
+### Advanced Topics
 
-**Quick Links:**
-- [Toast/Snackbar patterns](USAGE_GUIDE.md#toastsnackbar-patterns)
-- [Navigation patterns](USAGE_GUIDE.md#navigation-patterns)
-- [Error handling](USAGE_GUIDE.md#error-handling)
+- **[Architecture](ARCHITECTURE.md)** *(1802 lines)*
+  - Internal implementation details
+  - WeakReference mechanism
+  - Queue management
+  - Thread safety
+  - Platform-specific implementations
 
-### "I want to test my code that uses KRelay"
-→ Read: [Testing Guide](TESTING.md)
+- **[Positioning](POSITIONING.md)** *(678 lines)*
+  - Why KRelay exists
+  - The "Last Mile Problem" in KMP
+  - KRelay as The Glue Code Standard
+  - Comparison with alternatives
 
-**Quick Links:**
-- [Testing ViewModels](TESTING.md#testing-viewmodels)
-- [Mock implementations](TESTING.md#mock-implementations)
-- [Integration tests](TESTING.md#integration-tests)
+- **[Quick Reference](QUICK_REFERENCE.md)** *(541 lines)*
+  - Complete API documentation
+  - All functions with examples
+  - Configuration options
+  - Debug mode
 
-### "I need quick API reference"
-→ Read: [Quick Reference](QUICK_REFERENCE.md)
+---
 
-## 🔥 The Three Superpowers (Quick Summary)
+## 📖 Design Decisions
 
-### 1️⃣ Native Interop Bridge
-Clean, type-safe bridge from shared code to platform-specific features.
+### Architecture Decision Records (ADR)
 
-**Before:**
-```kotlin
-// DIY: Manual interface + boilerplate
-object MyBridge {
-    var activity: Activity? = null  // Memory leak!
-}
+- **[ADR-0001: Singleton and Serialization Tradeoffs](adr/0001-singleton-and-serialization-tradeoffs.md)**
+  - Why KRelay uses global singleton
+  - Why queue is not persistent
+  - Trade-offs and alternatives
+  - Future improvements (v2.0)
+
+---
+
+## 🚀 Quick Navigation
+
+### By Use Case
+
+**"I want to integrate a navigation library"**
+→ [Integration Guides: Voyager/Decompose](INTEGRATION_GUIDES.md#3-voyager-navigation)
+
+**"I need to request permissions from ViewModel"**
+→ [Integration Guides: Moko Permissions](INTEGRATION_GUIDES.md#1-moko-permissions)
+
+**"Can I use KRelay for payments/uploads?"**
+→ [Anti-Patterns: Critical Operations](ANTI_PATTERNS.md)
+
+**"How do I test ViewModels that use KRelay?"**
+→ [Testing Guide](TESTING.md)
+
+**"Too many @OptIn warnings in my code"**
+→ [Managing Warnings: Module-level Suppression](MANAGING_WARNINGS.md)
+
+**"How does KRelay work internally?"**
+→ [Architecture: Deep Dive](ARCHITECTURE.md)
+
+---
+
+## 📊 Documentation Structure
+
+```
+docs/
+├── README.md                           # This file - Documentation index
+├── INTEGRATION_GUIDES.md              # How to integrate libraries ⭐
+├── ANTI_PATTERNS.md                   # What NOT to do ⚠️
+├── TESTING.md                         # Testing guide 🧪
+├── MANAGING_WARNINGS.md               # OptIn annotations guide
+├── ARCHITECTURE.md                    # Technical deep dive 🏗️
+├── POSITIONING.md                     # Why KRelay exists 🎯
+├── QUICK_REFERENCE.md                 # API docs 📖
+└── adr/
+    └── 0001-singleton-and-serialization-tradeoffs.md
 ```
 
-**After with KRelay:**
-```kotlin
-// Clean, leak-free, automatic lifecycle
-KRelay.dispatch<ToastFeature> { it.show("Hello!") }
-```
+---
 
-### 2️⃣ The Standard for ViewModel One-off Events
-Escape LaunchedEffect hell - fire-and-forget navigation & UI commands.
+## 🎓 Learning Path
 
-**Before:**
-```kotlin
-// SharedFlow + collectAsState + LaunchedEffect = Headache
-val events = viewModel.navigationEvents.collectAsState()
-LaunchedEffect(events.value) { /* handle events */ }
-```
+### Beginner → Advanced
 
-**After with KRelay:**
-```kotlin
-// Zero boilerplate - just dispatch!
-viewModel.onLoginSuccess() // Internally: KRelay.dispatch<NavFeature>()
-```
+1. **Start**: Read [Main README](../README.md) - Understand what KRelay is
+2. **Quick Win**: Follow [Quick Start](../README.md#quick-start) - Get it working in 5 minutes
+3. **Real Integration**: Pick a library from [Integration Guides](INTEGRATION_GUIDES.md)
+4. **Best Practices**: Read [Anti-Patterns](ANTI_PATTERNS.md) - Learn what to avoid
+5. **Testing**: Implement tests using [Testing Guide](TESTING.md)
+6. **Deep Dive**: Understand internals in [Architecture](ARCHITECTURE.md)
+7. **Philosophy**: Read [Positioning](POSITIONING.md) - See the bigger picture
 
-### 3️⃣ Integration with Navigation Libraries
-"Ký sinh" strategy - become best friends with Voyager, Decompose, etc.
+---
 
-**Pattern:**
-```kotlin
-// ViewModel (Pure business logic)
-KRelay.dispatch<NavFeature> { it.goToHome() }
+## 🔍 Search by Keyword
 
-// Platform Implementation (Voyager wrapper)
-class VoyagerNavImpl(navigator: Navigator) : NavFeature {
-    override fun goToHome() = navigator.push(HomeScreen())
-}
-```
+- **Memory Leaks** → [Main README](../README.md#problem-1-memory-leaks-from-strong-references) | [Architecture](ARCHITECTURE.md)
+- **Process Death** → [Anti-Patterns](ANTI_PATTERNS.md) | [ADR-0001](adr/0001-singleton-and-serialization-tradeoffs.md)
+- **Super App** → [Anti-Patterns](ANTI_PATTERNS.md) | [@SuperAppWarning](MANAGING_WARNINGS.md)
+- **Voyager** → [Integration Guides](INTEGRATION_GUIDES.md#3-voyager-navigation)
+- **Moko Permissions** → [Integration Guides](INTEGRATION_GUIDES.md#1-moko-permissions)
+- **Testing** → [Testing Guide](TESTING.md)
+- **Thread Safety** → [Architecture](ARCHITECTURE.md)
+- **Queue** → [Architecture](ARCHITECTURE.md) | [Anti-Patterns](ANTI_PATTERNS.md)
 
-## 📖 Reading Order for New Users
+---
 
-**For Beginners:**
-1. Start with [Main README](../README.md) - Understand the "why"
-2. Follow [Quick Start](../README.md#quick-start) - Get hands dirty
-3. Read [Integration Guide](INTEGRATION_GUIDE.md) - Connect with your nav library
-4. Check [Testing Guide](TESTING.md) - Write tests
-
-**For Advanced Users:**
-1. [Architecture Guide](ARCHITECTURE.md) - Deep understanding
-2. [Usage Guide](USAGE_GUIDE.md) - Advanced patterns
-3. [Quick Reference](QUICK_REFERENCE.md) - Bookmark for lookup
-
-## 🧪 Demo Code
-
-All documentation includes working code examples. Find them in:
-
-- **Library Samples**: `krelay/src/commonMain/kotlin/dev/brewkits/krelay/samples/`
-  - `VoyagerNavigationFeature.kt` - Navigation feature interface
-  - `VoyagerDemoViewModel.kt` - ViewModel example
-  - `ToastFeature.kt`, `NotificationBridge.kt`, etc.
-
-- **Test Demos**: `krelay/src/commonTest/kotlin/dev/brewkits/krelay/demo/`
-  - `VoyagerIntegrationDemo.kt` - Complete test example
-  - `LoginFlowDemo.kt`, `DataSyncDemo.kt`, etc.
-
-- **Demo App**: `composeApp/`
-  - Android & iOS demo application
-  - Real-world usage patterns
-
-## 🤝 Contributing to Documentation
-
-Found an error or want to improve the docs?
-
-1. **Typos/Errors**: Open an issue or submit a PR
-2. **New Examples**: Add to relevant guide with clear comments
-3. **New Patterns**: Share in Usage Guide or Integration Guide
-
-## 📞 Getting Help
+## 💡 Need Help?
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/krelay/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/krelay/discussions)
-- **Examples**: Check `samples/` and `demo/` folders
+- **Can't find integration for your library?** Open an issue - we'll create a guide!
 
 ---
 
 **Made with ❤️ for the Kotlin Multiplatform community**
-
-**Version**: 1.0.0
-**Last Updated**: 2026-01-22
-**Philosophy**: Do One Thing and Do It Well

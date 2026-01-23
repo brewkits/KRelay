@@ -1,6 +1,11 @@
 package dev.brewkits.krelay.integration.voyager
 
 import cafe.adriel.voyager.navigator.Navigator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 
 /**
  * Real Voyager implementation of VoyagerNavFeature.
@@ -12,26 +17,42 @@ import cafe.adriel.voyager.navigator.Navigator
  * - ViewModels dispatch to VoyagerNavFeature (interface)
  * - KRelay finds this implementation
  * - This implementation calls Voyager Navigator
+ *
+ * Note: Navigation calls use replace() instead of replaceAll() to avoid lifecycle conflicts
  */
 class VoyagerNavigationImpl(
     private val navigator: Navigator,
     private val onBackToMenu: () -> Unit
 ) : VoyagerNavFeature {
 
+    private val navigationScope = CoroutineScope(Dispatchers.Main)
+
     override fun navigateToHome() {
         println("\n🌉 [VoyagerNavigationImpl] KRelay called navigateToHome()")
         println("   ┌─ This is the BRIDGE between KRelay → Voyager")
         println("   ├─ Current stack size: ${navigator.size}")
-        println("   ├─ Action: REPLACE ALL (clear entire stack)")
+        println("   ├─ Action: POP ALL + PUSH (workaround for lifecycle issue)")
         println("   ├─ Creating: HomeScreen(onBackToMenu)")
-        println("   └─ Calling: navigator.replaceAll(HomeScreen)")
+        println("   └─ Scheduling navigation in coroutine scope")
 
-        // Replace entire stack with HomeScreen
-        navigator.replaceAll(HomeScreen(onBackToMenu = onBackToMenu))
+        navigationScope.launch {
+            try {
+                yield()
+                delay(150)
 
-        println("   ✓ Navigation completed!")
-        println("   ✓ New stack size: ${navigator.size}")
-        println("   ✓ Current screen: HomeScreen\n")
+                // Workaround: popAll() then push() to avoid lifecycle conflicts
+                navigator.popAll()
+                delay(50) // Small gap between operations
+                navigator.push(HomeScreen(onBackToMenu = onBackToMenu))
+
+                println("   ✓ Navigation completed!")
+                println("   ✓ New stack size: ${navigator.size}")
+                println("   ✓ Current screen: HomeScreen\n")
+            } catch (e: Exception) {
+                println("   ❌ Navigation failed: ${e.message}")
+                e.printStackTrace()
+            }
+        }
     }
 
     override fun navigateToProfile(userId: String) {
@@ -40,14 +61,21 @@ class VoyagerNavigationImpl(
         println("   ├─ Current stack size: ${navigator.size}")
         println("   ├─ Action: PUSH (add to stack)")
         println("   ├─ Creating: ProfileScreen(userId='$userId', onBackToMenu)")
-        println("   └─ Calling: navigator.push(ProfileScreen)")
+        println("   └─ Scheduling navigation in coroutine scope")
 
-        // Push ProfileScreen onto stack
-        navigator.push(ProfileScreen(userId = userId, onBackToMenu = onBackToMenu))
-
-        println("   ✓ Navigation completed!")
-        println("   ✓ New stack size: ${navigator.size}")
-        println("   ✓ Current screen: ProfileScreen\n")
+        navigationScope.launch {
+            try {
+                yield()
+                delay(100)
+                navigator.push(ProfileScreen(userId = userId, onBackToMenu = onBackToMenu))
+                println("   ✓ Navigation completed!")
+                println("   ✓ New stack size: ${navigator.size}")
+                println("   ✓ Current screen: ProfileScreen\n")
+            } catch (e: Exception) {
+                println("   ❌ Navigation failed: ${e.message}")
+                e.printStackTrace()
+            }
+        }
     }
 
     override fun navigateBack() {
@@ -55,30 +83,48 @@ class VoyagerNavigationImpl(
         println("   ┌─ This is the BRIDGE between KRelay → Voyager")
         println("   ├─ Current stack size: ${navigator.size}")
         println("   ├─ Action: POP (remove top screen)")
-        println("   └─ Calling: navigator.pop()")
+        println("   └─ Scheduling navigation in coroutine scope")
 
-        // Pop current screen
-        navigator.pop()
-
-        println("   ✓ Navigation completed!")
-        println("   ✓ New stack size: ${navigator.size}")
-        println("   ✓ Returned to previous screen\n")
+        navigationScope.launch {
+            try {
+                yield()
+                delay(100)
+                navigator.pop()
+                println("   ✓ Navigation completed!")
+                println("   ✓ New stack size: ${navigator.size}")
+                println("   ✓ Returned to previous screen\n")
+            } catch (e: Exception) {
+                println("   ❌ Navigation failed: ${e.message}")
+                e.printStackTrace()
+            }
+        }
     }
 
     override fun navigateToLogin() {
         println("\n🌉 [VoyagerNavigationImpl] KRelay called navigateToLogin()")
         println("   ┌─ This is the BRIDGE between KRelay → Voyager")
         println("   ├─ Current stack size: ${navigator.size}")
-        println("   ├─ Action: REPLACE ALL (logout flow)")
+        println("   ├─ Action: POP ALL + PUSH (logout flow)")
         println("   ├─ Creating: LoginScreen(onBackToMenu)")
-        println("   └─ Calling: navigator.replaceAll(LoginScreen)")
+        println("   └─ Scheduling navigation in coroutine scope")
 
-        // Replace entire stack with LoginScreen
-        navigator.replaceAll(LoginScreen(onBackToMenu = onBackToMenu))
+        navigationScope.launch {
+            try {
+                yield()
+                delay(150)
 
-        println("   ✓ Navigation completed!")
-        println("   ✓ New stack size: ${navigator.size}")
-        println("   ✓ Current screen: LoginScreen (user logged out)\n")
+                navigator.popAll()
+                delay(50)
+                navigator.push(LoginScreen(onBackToMenu = onBackToMenu))
+
+                println("   ✓ Navigation completed!")
+                println("   ✓ New stack size: ${navigator.size}")
+                println("   ✓ Current screen: LoginScreen (user logged out)\n")
+            } catch (e: Exception) {
+                println("   ❌ Navigation failed: ${e.message}")
+                e.printStackTrace()
+            }
+        }
     }
 
     override fun navigateToSignup() {
@@ -87,13 +133,20 @@ class VoyagerNavigationImpl(
         println("   ├─ Current stack size: ${navigator.size}")
         println("   ├─ Action: PUSH (add signup screen)")
         println("   ├─ Creating: SignupScreen(onBackToMenu)")
-        println("   └─ Calling: navigator.push(SignupScreen)")
+        println("   └─ Scheduling navigation in coroutine scope")
 
-        // Push SignupScreen onto stack
-        navigator.push(SignupScreen(onBackToMenu = onBackToMenu))
-
-        println("   ✓ Navigation completed!")
-        println("   ✓ New stack size: ${navigator.size}")
-        println("   ✓ Current screen: SignupScreen\n")
+        navigationScope.launch {
+            try {
+                yield()
+                delay(100)
+                navigator.push(SignupScreen(onBackToMenu = onBackToMenu))
+                println("   ✓ Navigation completed!")
+                println("   ✓ New stack size: ${navigator.size}")
+                println("   ✓ Current screen: SignupScreen\n")
+            } catch (e: Exception) {
+                println("   ❌ Navigation failed: ${e.message}")
+                e.printStackTrace()
+            }
+        }
     }
 }

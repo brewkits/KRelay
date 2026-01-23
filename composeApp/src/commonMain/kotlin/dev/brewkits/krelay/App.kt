@@ -25,7 +25,12 @@ fun App() {
 
     when (selectedDemo) {
         DemoType.BASIC -> BasicDemo(onBackClick = { selectedDemo = null })
-        DemoType.VOYAGER -> VoyagerDemo(onBackClick = { selectedDemo = null })
+        // DemoType.VOYAGER -> VoyagerDemo(onBackClick = { selectedDemo = null })
+        // Temporarily disabled due to Voyager lifecycle bug
+        DemoType.VOYAGER -> {
+            // Fallback to menu with message
+            DemoSelectionMenu(onDemoSelected = { selectedDemo = it })
+        }
         DemoType.INTEGRATIONS -> IntegrationsDemo(onBackClick = { selectedDemo = null })
         null -> DemoSelectionMenu(onDemoSelected = { selectedDemo = it })
     }
@@ -74,16 +79,20 @@ fun DemoSelectionMenu(onDemoSelected: (DemoType) -> Unit) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Voyager Integration Demo Card
+                // Voyager Integration Demo Card (DISABLED)
                 DemoCard(
-                    title = "🧭 Voyager Integration",
-                    description = "Real integration with Voyager:\n" +
-                            "• Actual Voyager Navigator\n" +
-                            "• ViewModels with zero Voyager deps\n" +
-                            "• Clean architecture pattern\n" +
-                            "• Testable navigation",
-                    onClick = { onDemoSelected(DemoType.VOYAGER) },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                    title = "🧭 Voyager Integration (TEMPORARILY DISABLED)",
+                    description = "⚠️ Disabled due to Voyager lifecycle bug\n\n" +
+                            "Known Issue:\n" +
+                            "Voyager's AndroidScreenLifecycleOwner has a bug\n" +
+                            "that causes crashes on navigation (DESTROYED\n" +
+                            "state transition issue).\n\n" +
+                            "This is a Voyager library issue, not KRelay.\n" +
+                            "Waiting for Voyager fix or will implement\n" +
+                            "alternative navigation demo.",
+                    onClick = { /* Disabled */ },
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    enabled = false
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -121,14 +130,16 @@ fun DemoCard(
     title: String,
     description: String,
     onClick: () -> Unit,
-    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surfaceVariant
+    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surfaceVariant,
+    enabled: Boolean = true
 ) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = containerColor
-        )
+        ),
+        enabled = enabled
     ) {
         Column(
             modifier = Modifier.padding(20.dp)

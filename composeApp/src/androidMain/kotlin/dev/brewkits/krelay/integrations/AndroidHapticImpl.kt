@@ -1,5 +1,6 @@
 package dev.brewkits.krelay.integrations
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.os.VibrationEffect
@@ -26,6 +27,7 @@ class AndroidHapticImpl(
         }
     }
 
+    @SuppressLint("MissingPermission")
     override fun vibrate(durationMs: Long) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
@@ -44,6 +46,7 @@ class AndroidHapticImpl(
         vibrate(duration)
     }
 
+    @SuppressLint("MissingPermission")
     @RequiresApi(Build.VERSION_CODES.Q)
     override fun success() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -53,6 +56,7 @@ class AndroidHapticImpl(
         }
     }
 
+    @SuppressLint("MissingPermission")
     @RequiresApi(Build.VERSION_CODES.Q)
     override fun error() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -66,6 +70,7 @@ class AndroidHapticImpl(
         vibrate(75)
     }
 
+    @SuppressLint("MissingPermission")
     @RequiresApi(Build.VERSION_CODES.Q)
     override fun selection() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

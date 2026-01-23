@@ -10,15 +10,34 @@ import kotlin.reflect.KClass
  * 2. Weak Registry: Holds platform implementations without memory leaks
  * 3. Sticky Queue: Queues actions when UI is not ready, replays when it becomes available
  *
+ * ## ⚠️ CRITICAL WARNINGS
+ *
+ * ### 1. Process Death: Queue is NOT Persistent
+ * Lambda functions in the queue **cannot survive process death** (OS kills your app).
+ * - ✅ **Safe**: Toast, Navigation, Haptics (UI feedback)
+ * - ❌ **NEVER**: Payments, File Uploads, Critical Analytics
+ * - 🔧 **Use Instead**: WorkManager for guaranteed execution
+ *
+ * ### 2. Singleton in Super Apps
+ * Global singleton may conflict in apps with multiple independent modules.
+ * - ✅ **Safe**: Single-module apps, small-medium projects
+ * - ⚠️ **Caution**: Super Apps (Grab/Gojek style) - use Feature Namespacing
+ * - 🔜 **Future**: v2.0 will add instance-based KRelay for DI
+ *
+ * See @ProcessDeathUnsafe and @SuperAppWarning for detailed guidance.
+ *
  * Usage:
  * ```kotlin
  * // In shared code (ViewModel, UseCase, etc.)
+ * @OptIn(ProcessDeathUnsafe::class, SuperAppWarning::class)
  * KRelay.dispatch<ToastFeature> { it.show("Hello!") }
  *
  * // In platform code (Activity, ViewController)
+ * @OptIn(ProcessDeathUnsafe::class, SuperAppWarning::class)
  * KRelay.register(this as ToastFeature)
  * ```
  */
+@SuperAppWarning
 object KRelay {
     // Thread-safe lock for all operations
     @PublishedApi
@@ -45,8 +64,12 @@ object KRelay {
      * This should be called from platform code (Activity onCreate, ViewController init, etc.)
      * When registered, any pending actions in the queue will be immediately replayed.
      *
+     * ⚠️ **IMPORTANT**: Queued actions are lost on process death (OS kills app).
+     * See @ProcessDeathUnsafe for safe vs dangerous use cases.
+     *
      * @param impl The platform implementation of a RelayFeature
      */
+    @ProcessDeathUnsafe
     inline fun <reified T : RelayFeature> register(impl: T) {
         registerInternal(T::class, impl)
     }
@@ -110,8 +133,26 @@ object KRelay {
      * Reliability: Queues action if implementation is not available yet.
      * Queue Management: Enforces size limits and expires old actions.
      *
+     * ⚠️ **CRITICAL WARNING**: Queue is lost on process death (OS kills app).
+     *
+     * **Safe Use Cases (UI feedback - acceptable to lose):**
+     * - Toast/Snackbar notifications
+     * - Navigation commands
+     * - Haptic feedback / Vibration
+     * - Permission requests
+     * - In-app notifications
+     *
+     * **DANGEROUS Use Cases (NEVER use KRelay for these):**
+     * - Banking/Payment transactions → Use WorkManager
+     * - File uploads → Use UploadWorker
+     * - Critical analytics → Use persistent queue
+     * - Database writes → Use Room/SQLite directly
+     *
+     * See @ProcessDeathUnsafe annotation for complete guidance.
+     *
      * @param block The action to execute on the platform implementation
      */
+    @ProcessDeathUnsafe
     @Suppress("UNCHECKED_CAST")
     inline fun <reified T : RelayFeature> dispatch(noinline block: (T) -> Unit) {
         val kClass = T::class

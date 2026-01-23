@@ -1,11 +1,11 @@
 package dev.brewkits.krelay
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.fragment.app.FragmentActivity
 import dev.brewkits.krelay.KRelay
 import dev.brewkits.krelay.platform.AndroidNavigationFeature
 import dev.brewkits.krelay.platform.AndroidNotificationBridge
@@ -14,7 +14,7 @@ import dev.brewkits.krelay.samples.NavigationFeature
 import dev.brewkits.krelay.samples.NotificationBridge
 import dev.brewkits.krelay.samples.ToastFeature
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
