@@ -1,0 +1,149 @@
+KRelay v1.0.1 - Artifact Checksums
+====================================
+
+Generated: 2026-01-23
+Location: krelay/build/maven-central-staging/
+
+This file contains checksums for verification of artifact integrity.
+
+====================================
+Version 1.0.1 - New iOS Targets
+====================================
+
+This version adds separate publications for iOS platforms:
+- krelay-iosarm64 (iOS devices - ARM64)
+- krelay-iossimulatorarm64 (iOS simulators on M1/M2 Macs - Apple Silicon)
+- krelay-iosx64 (iOS simulators on Intel Macs)
+
+Total artifacts: 5
+- krelay (base/metadata)
+- krelay-android (Android)
+- krelay-iosarm64 (iOS ARM64)
+- krelay-iossimulatorarm64 (iOS Simulator ARM64)
+- krelay-iosx64 (iOS X64)
+
+====================================
+Android Library
+====================================
+
+krelay-android-1.0.1.aar (624K)
+--------------------------------------
+MD5:    cebb7087cd925b00396cfb590a307e0e
+SHA1:   ca79daa24c3a7dfa776b985c3e44afed40fbb42e
+SHA256: 7cffb41fea022b59818a6b41f25f3383962826fc942d6716cc8f7f2be63e54db
+SHA512: 9e06629f153ae2c904fd2b9887f1dfe63819097bb14e7fafe56628595c3ddae52c41f860833602a77bbe807d3014eeb642aa15bc692408eb97e5a1a8eff06ade
+
+krelay-android-1.0.1-sources.jar (40K)
+--------------------------------------
+MD5:    fb16c5f0c3676701028e3be9c18e9719
+SHA1:   ca2f36a2ccadc919f05c96f951aa7266cfc092e4
+SHA256: c51a98d427d748bcef746b41e86be775d85113a603901538fe19e59f015c2461
+SHA512: 46b02698988cbbcf090c8d539eaba076a9ad421fcaf96bc7585faba62ece6ae56da71ca281ae18f4d81f7b6201068b44bbce37b3aeb8b59dc6011877133b2927
+
+====================================
+Multiplatform Library (Base)
+====================================
+
+krelay-1.0.1.jar (17K)
+--------------------------------------
+MD5:    256d7386ff094dda7ed74375e9e58c4d
+SHA1:   d7291255d33ac219940525bd6afaee1cac7e839f
+SHA256: 88152fef57fc35e96aaa90327fcfef7bd337525a1f6637a31b7be3ee9d338a4f
+SHA512: 97efb692c1e06e86153fddd3bf9f4ad84c0451098ff8fae34b983ee49249379495f10d926742918bee40b531dcb052784ecbe562b92c71fc38a377eca42f8420
+
+krelay-1.0.1-sources.jar (40K)
+--------------------------------------
+MD5:    0befcecc649d5183519cb3ea6b77d962
+SHA1:   04c569d6542ed2dd03f1f0a84a3a1a05e28f3393
+SHA256: 22d20bcd447a3d206abb1d688aabf33df941396fc398b4e3d0cda94166423da1
+SHA512: fc7a0b0b967606b1a02ba24da3ae94b345b8ea7fb54bddfd7922a0d465156ade72891475e039ca2db4501aa02225cfc052e970168e88cc92062188edf3e467a5
+
+====================================
+iOS ARM64 (Devices)
+====================================
+
+krelay-iosarm64-1.0.1.klib (103K)
+--------------------------------------
+MD5:    f6f5078d924425846eca9f688f9bac24
+SHA1:   2d1a3a3b8345b62292784ae5b0a68e50cea2038d
+SHA256: 3ea76744eda1ad1bd3dd8c9558655594e50f322b90a358bb9ade8b6460e6bbd1
+SHA512: 60972bd41adebea914de3b8606193dfc3cfd360396db929754609584693b3aa36dc8f1e5adf69265f6dfc4f15250709b85578087c3cf02aa51bf624d80adf840
+
+krelay-iosarm64-1.0.1-sources.jar (40K)
+--------------------------------------
+MD5:    fb16c5f0c3676701028e3be9c18e9719
+SHA1:   ca2f36a2ccadc919f05c96f951aa7266cfc092e4
+SHA256: c51a98d427d748bcef746b41e86be775d85113a603901538fe19e59f015c2461
+SHA512: 46b02698988cbbcf090c8d539eaba076a9ad421fcaf96bc7585faba62ece6ae56da71ca281ae18f4d81f7b6201068b44bbce37b3aeb8b59dc6011877133b2927
+
+====================================
+iOS Simulator ARM64 (M1/M2 Macs)
+====================================
+
+krelay-iossimulatorarm64-1.0.1.klib (103K)
+--------------------------------------
+MD5:    f6f5078d924425846eca9f688f9bac24
+SHA1:   2d1a3a3b8345b62292784ae5b0a68e50cea2038d
+SHA256: 3ea76744eda1ad1bd3dd8c9558655594e50f322b90a358bb9ade8b6460e6bbd1
+SHA512: 60972bd41adebea914de3b8606193dfc3cfd360396db929754609584693b3aa36dc8f1e5adf69265f6dfc4f15250709b85578087c3cf02aa51bf624d80adf840
+
+krelay-iossimulatorarm64-1.0.1-sources.jar (40K)
+--------------------------------------
+MD5:    fb16c5f0c3676701028e3be9c18e9719
+SHA1:   ca2f36a2ccadc919f05c96f951aa7266cfc092e4
+SHA256: c51a98d427d748bcef746b41e86be775d85113a603901538fe19e59f015c2461
+SHA512: 46b02698988cbbcf090c8d539eaba076a9ad421fcaf96bc7585faba62ece6ae56da71ca281ae18f4d81f7b6201068b44bbce37b3aeb8b59dc6011877133b2927
+
+====================================
+iOS Simulator X64 (Intel Macs)
+====================================
+
+krelay-iosx64-1.0.1.klib (103K)
+--------------------------------------
+MD5:    f6f5078d924425846eca9f688f9bac24
+SHA1:   2d1a3a3b8345b62292784ae5b0a68e50cea2038d
+SHA256: 3ea76744eda1ad1bd3dd8c9558655594e50f322b90a358bb9ade8b6460e6bbd1
+SHA512: 60972bd41adebea914de3b8606193dfc3cfd360396db929754609584693b3aa36dc8f1e5adf69265f6dfc4f15250709b85578087c3cf02aa51bf624d80adf840
+
+krelay-iosx64-1.0.1-sources.jar (40K)
+--------------------------------------
+MD5:    fb16c5f0c3676701028e3be9c18e9719
+SHA1:   ca2f36a2ccadc919f05c96f951aa7266cfc092e4
+SHA256: c51a98d427d748bcef746b41e86be775d85113a603901538fe19e59f015c2461
+SHA512: 46b02698988cbbcf090c8d539eaba076a9ad421fcaf96bc7585faba62ece6ae56da71ca281ae18f4d81f7b6201068b44bbce37b3aeb8b59dc6011877133b2927
+
+====================================
+Verification
+====================================
+
+To verify an artifact:
+
+  shasum -a 256 <artifact-file>
+
+Compare the output with the SHA256 value above.
+
+====================================
+Complete Package Summary
+====================================
+
+Bundle File: krelay-1.0.1-bundle.zip (1.2MB)
+Total Publications: 5
+- kotlinMultiplatform (krelay)
+- androidRelease (krelay-android)
+- iosArm64 (krelay-iosarm64)
+- iosSimulatorArm64 (krelay-iossimulatorarm64)
+- iosX64 (krelay-iosx64)
+
+Total Files: ~170 files (artifacts + checksums + signatures + metadata)
+- Main artifacts: 29 files
+- GPG signatures (.asc): 29 files
+- Checksums (MD5, SHA1, SHA256, SHA512): 116 files
+- Maven metadata: ~20 files
+
+All files located in:
+  krelay/build/maven-central-staging/dev/brewkits/
+
+Changes from v1.0.0:
+  + Added krelay-iosarm64 publication (iOS devices)
+  + Added krelay-iossimulatorarm64 publication (M1/M2 Mac simulators)
+  + Added krelay-iosx64 publication (Intel Mac simulators)

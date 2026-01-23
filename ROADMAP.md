@@ -27,13 +27,15 @@ This document outlines the strategic development plan for KRelay, focusing on re
 - [x] Create GPG signing configuration
 - [x] Write publishing automation script
 - [x] Document setup process
-- [ ] Create Sonatype JIRA account
-- [ ] Request dev.brewkits group ID verification
-- [ ] Publish v1.0.0 to Maven Central
+- [x] Create Sonatype JIRA account
+- [x] Request dev.brewkits group ID verification
+- [x] Publish v1.0.0 to Maven Central
+- [x] Publish v1.0.1 with iOS platform artifacts
 
 **Deliverables**:
-- Published artifact: `dev.brewkits:krelay:1.0.0`
+- Published artifact: `dev.brewkits:krelay:1.0.1`
 - Available on Maven Central within 24 hours of release
+- Separate iOS platform publications (iosarm64, iossimulatorarm64, iosx64)
 
 ### Community Education
 
@@ -631,5 +633,5 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed rationale.
 ---
 
 **Last Updated**: 2026-01-23
-**Current Version**: v1.0.0
+**Current Version**: v1.0.1
 **Next Release**: v1.1.0 (Desktop Support) - Planned Q2 2026

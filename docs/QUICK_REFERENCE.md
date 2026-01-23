@@ -1,4 +1,4 @@
-# KRelay v1.0.0 - Quick Reference Card
+# KRelay v1.0.1 - Quick Reference Card
 
 ## 🚀 Installation
 
@@ -535,7 +535,7 @@ Global `object KRelay` - simple but has trade-offs:
 
 ---
 
-**Version:** 1.0.0
+**Version:** 1.0.1
 **Status:** Production Ready ✅
-**License:** MIT
-**Last Updated:** 2026-01-22
+**License:** Apache 2.0
+**Last Updated:** 2026-01-23

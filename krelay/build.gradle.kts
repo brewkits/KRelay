@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "dev.brewkits"
-version = "1.0.0"
+version = "1.0.1"
 
 kotlin {
     androidTarget {
@@ -18,9 +18,11 @@ kotlin {
         publishLibraryVariants("release")
     }
 
+    // iOS targets - publish each as separate artifact
     listOf(
         iosArm64(),
-        iosSimulatorArm64()
+        iosSimulatorArm64(),
+        iosX64()
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
             baseName = "KRelay"
@@ -65,7 +67,13 @@ publishing {
     publications {
         withType<MavenPublication> {
             groupId = "dev.brewkits"
-            artifactId = "krelay"
+            // Don't override artifactId - let Gradle use default naming:
+            // - kotlinMultiplatform -> krelay
+            // - androidRelease -> krelay-android
+            // - iosArm64 -> krelay-iosarm64
+            // - iosSimulatorArm64 -> krelay-iossimulatorarm64
+            // - iosX64 -> krelay-iosx64
+            // - js -> krelay-js
             version = project.version.toString()
 
             pom {

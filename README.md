@@ -109,7 +109,7 @@ class LoginViewModel {
 ```kotlin
 // In your shared module's build.gradle.kts
 commonMain.dependencies {
-    implementation("dev.brewkits:krelay:1.0.0")
+    implementation("dev.brewkits:krelay:1.0.1")
 }
 ```
 
