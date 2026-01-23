@@ -9,6 +9,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.brewkits.krelay.basic.BasicDemo
+import dev.brewkits.krelay.integration.decompose.DecomposeDemo
 import dev.brewkits.krelay.integration.voyager.VoyagerDemo
 import dev.brewkits.krelay.integrations.IntegrationsDemo
 
@@ -31,6 +32,7 @@ fun App() {
             // Fallback to menu with message
             DemoSelectionMenu(onDemoSelected = { selectedDemo = it })
         }
+        DemoType.DECOMPOSE -> DecomposeDemo(onBackClick = { selectedDemo = null })
         DemoType.INTEGRATIONS -> IntegrationsDemo(onBackClick = { selectedDemo = null })
         null -> DemoSelectionMenu(onDemoSelected = { selectedDemo = it })
     }
@@ -93,6 +95,21 @@ fun DemoSelectionMenu(onDemoSelected: (DemoType) -> Unit) {
                     onClick = { /* Disabled */ },
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                     enabled = false
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Decompose Integration Demo Card
+                DemoCard(
+                    title = "🧩 Decompose Integration",
+                    description = "Navigation with Decompose:\n" +
+                            "✅ Stable lifecycle (no crashes!)\n" +
+                            "• Component-based architecture\n" +
+                            "• Stack navigation demo\n" +
+                            "• Clean separation (ViewModels → KRelay → Decompose)\n" +
+                            "• Zero Decompose deps in ViewModels!",
+                    onClick = { onDemoSelected(DemoType.DECOMPOSE) },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -173,5 +190,6 @@ fun DemoCard(
 enum class DemoType {
     BASIC,
     VOYAGER,
+    DECOMPOSE,
     INTEGRATIONS
 }

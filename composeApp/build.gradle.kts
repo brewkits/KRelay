@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
@@ -22,6 +23,8 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
+            // Specify bundle ID to avoid warning
+            binaryOption("bundleId", "dev.brewkits.krelay.ComposeApp")
         }
     }
     
@@ -45,9 +48,13 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
 
-            // Voyager - Navigation library for KMP
+            // Voyager - Navigation library for KMP (has lifecycle bugs, using Decompose instead)
             implementation("cafe.adriel.voyager:voyager-navigator:1.0.0")
             implementation("cafe.adriel.voyager:voyager-transitions:1.0.0")
+
+            // Decompose - Alternative navigation library for KMP
+            implementation(libs.decompose)
+            implementation(libs.decompose.compose)
 
             // Moko libraries for KMP
             implementation(libs.moko.permissions)

@@ -65,7 +65,7 @@ class KRelayTest {
     fun testBasicDispatch_WhenImplementationIsRegistered() {
         // Given: An implementation is registered
         val mock = MockTestFeature()
-        KRelay.register(mock)
+        KRelay.register<TestFeature>(mock)
 
         // When: We dispatch an action
         KRelay.dispatch<TestFeature> { it.execute("test-value") }
@@ -98,7 +98,7 @@ class KRelayTest {
 
         // When: Implementation is registered
         val mock = MockTestFeature()
-        KRelay.register(mock)
+        KRelay.register<TestFeature>(mock)
 
         // Then: All queued actions should be replayed
         // Note: In async scenarios, we'd need to wait for main thread execution
@@ -113,7 +113,7 @@ class KRelayTest {
     fun testIsRegistered_ReturnsTrueWhenImplementationExists() {
         // Given: An implementation is registered
         val mock = MockTestFeature()
-        KRelay.register(mock)
+        KRelay.register<TestFeature>(mock)
 
         // When & Then: isRegistered should return true
         assertTrue(KRelay.isRegistered<TestFeature>())
@@ -131,7 +131,7 @@ class KRelayTest {
     fun testUnregister_RemovesImplementation() {
         // Given: An implementation is registered
         val mock = MockTestFeature()
-        KRelay.register(mock)
+        KRelay.register<TestFeature>(mock)
         assertTrue(KRelay.isRegistered<TestFeature>())
 
         // When: We unregister
@@ -147,8 +147,8 @@ class KRelayTest {
         val mockTest = MockTestFeature()
         val mockAnother = MockAnotherTestFeature()
 
-        KRelay.register(mockTest)
-        KRelay.register(mockAnother)
+        KRelay.register<TestFeature>(mockTest)
+        KRelay.register<AnotherTestFeature>(mockAnother)
 
         // When: We dispatch to both
         KRelay.dispatch<TestFeature> { it.execute("test") }
@@ -176,7 +176,7 @@ class KRelayTest {
     @Test
     fun testReset_ClearsAllRegistrationsAndQueues() {
         // Given: Multiple implementations and queued actions
-        KRelay.register(MockTestFeature())
+        KRelay.register<TestFeature>(MockTestFeature())
         KRelay.dispatch<AnotherTestFeature> { it.perform(10) }
 
         assertTrue(KRelay.isRegistered<TestFeature>())
@@ -227,14 +227,14 @@ class KRelayTest {
     fun testRegisterSameFeatureTwice_ReplacesImplementation() {
         // Given: First implementation
         val first = MockTestFeature()
-        KRelay.register(first)
+        KRelay.register<TestFeature>(first)
 
         // Queue an action
         KRelay.dispatch<TestFeature> { it.execute("test") }
 
         // When: We register a second implementation
         val second = MockTestFeature()
-        KRelay.register(second)
+        KRelay.register<TestFeature>(second)
 
         // Then: The registration should succeed
         assertTrue(KRelay.isRegistered<TestFeature>())

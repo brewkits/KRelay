@@ -14,30 +14,18 @@ import platform.darwin.dispatch_get_main_queue
 /**
  * Real iOS Toast implementation.
  *
- * On iOS Simulator: Just logs to console (UIAlertController can be flaky)
- * On Real Device: Shows UIAlertController that auto-dismisses
+ * Shows UIAlertController that auto-dismisses after a duration.
+ * Works on both iOS Simulator and Real Device.
  */
 @OptIn(ExperimentalForeignApi::class)
 class IOSToastImpl : ToastFeature {
 
-    private val isSimulator: Boolean by lazy {
-        platform.Foundation.NSProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] != null
-    }
-
     override fun showShort(message: String) {
-        if (isSimulator) {
-            println("🍞 [Toast] SHORT: $message")
-        } else {
-            showToast(message, duration = 2.0)
-        }
+        showToast(message, duration = 2.0)
     }
 
     override fun showLong(message: String) {
-        if (isSimulator) {
-            println("🍞 [Toast] LONG: $message")
-        } else {
-            showToast(message, duration = 3.5)
-        }
+        showToast(message, duration = 3.5)
     }
 
     private fun showToast(message: String, duration: Double) {

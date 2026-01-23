@@ -185,7 +185,7 @@ inline fun <reified T : RelayFeature> simulateActivityLifecycle(
     onDestroyed: () -> Unit = {}
 ) {
     // onCreate
-    KRelay.register(implementation)
+    KRelay.register<T>(implementation)
     onCreated()
 
     // onDestroy
@@ -202,7 +202,7 @@ inline fun <reified T : RelayFeature> simulateRotation(
     actionsDuringRotation: () -> Unit = {}
 ) {
     // Before rotation
-    KRelay.register(oldImplementation)
+    KRelay.register<T>(oldImplementation)
 
     // Rotation starts - unregister
     KRelay.unregister<T>()
@@ -211,7 +211,7 @@ inline fun <reified T : RelayFeature> simulateRotation(
     actionsDuringRotation()
 
     // After rotation - new Activity
-    KRelay.register(newImplementation)
+    KRelay.register<T>(newImplementation)
 }
 
 /**
@@ -222,7 +222,7 @@ inline fun <reified T : RelayFeature> simulateBackgrounding(
     actionInBackground: () -> Unit = {}
 ) {
     // Foreground
-    KRelay.register(foregroundImplementation)
+    KRelay.register<T>(foregroundImplementation)
 
     // Go to background
     KRelay.unregister<T>()
@@ -237,7 +237,7 @@ inline fun <reified T : RelayFeature> simulateBackgrounding(
 inline fun <reified T : RelayFeature> simulateForegrounding(
     newImplementation: T
 ) {
-    KRelay.register(newImplementation)
+    KRelay.register<T>(newImplementation)
 }
 
 // === QUEUE HELPERS ===
@@ -358,7 +358,7 @@ inline fun <reified T : RelayFeature> verifyRegistrationFlow(
     assertQueueSize<T>(expectedQueuedBefore)
 
     // Register
-    KRelay.register(implementation)
+    KRelay.register<T>(implementation)
     assertRegistered<T>()
 
     // Queue should be cleared (replayed)
@@ -375,7 +375,7 @@ inline fun <reified T : RelayFeature> verifyRotationFlow(
     verify: (T) -> Unit
 ) {
     // Before rotation
-    KRelay.register(beforeRotation)
+    KRelay.register<T>(beforeRotation)
     assertRegistered<T>()
 
     // Rotation
@@ -387,7 +387,7 @@ inline fun <reified T : RelayFeature> verifyRotationFlow(
     assertQueueNotEmpty<T>()
 
     // After rotation
-    KRelay.register(afterRotation)
+    KRelay.register<T>(afterRotation)
     assertQueueEmpty<T>()
 
     // Verify replayed action

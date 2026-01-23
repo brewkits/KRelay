@@ -95,7 +95,7 @@ class MultiFeatureCoordinationDemo {
 
         override fun goBack() {
             if (navigationStack.size > 1) {
-                navigationStack.removeLast()
+                navigationStack.removeAt(navigationStack.size - 1)
             }
         }
 

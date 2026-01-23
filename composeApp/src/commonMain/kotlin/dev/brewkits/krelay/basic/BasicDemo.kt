@@ -27,6 +27,14 @@ import dev.brewkits.krelay.samples.NavigationFeature
 import dev.brewkits.krelay.samples.AnalyticsFeature
 
 /**
+ * Platform-specific Toast implementation factory.
+ * - Android: Returns AndroidToastImpl (real Android Toast with Context)
+ * - iOS: Returns IOSToastImpl (real iOS UIAlertController)
+ */
+@Composable
+expect fun rememberPlatformToastImpl(): ToastFeature
+
+/**
  * Basic KRelay Demo
  *
  * Shows fundamental KRelay features:
@@ -56,28 +64,26 @@ fun BasicDemo(onBackClick: () -> Unit) {
             }
         ) { paddingValues ->
             val viewModel = remember { DemoViewModel() }
+            val toastImpl = rememberPlatformToastImpl()
 
-            // Register mock implementations for Basic Demo
+            // Register implementations for Basic Demo
             LaunchedEffect(Unit) {
                 println("\n╔════════════════════════════════════════════════════════════════╗")
-                println("║  📱 BASIC DEMO - KRelay Mock Implementations Setup           ║")
+                println("║  📱 BASIC DEMO - KRelay Feature Setup                        ║")
                 println("╚════════════════════════════════════════════════════════════════╝")
-                println("\n🔧 [BasicDemo] Registering mock implementations with KRelay...")
-                println("   → Registering ToastFeature -> MockToastImpl")
-                KRelay.register<ToastFeature>(MockToastImpl())
+                println("\n🔧 [BasicDemo] Registering implementations with KRelay...")
+                println("   → Registering ToastFeature -> Platform-specific REAL implementation")
+                KRelay.register<ToastFeature>(toastImpl)
                 println("   → Registering NotificationBridge -> MockNotificationImpl")
                 KRelay.register<NotificationBridge>(MockNotificationImpl())
                 println("   → Registering NavigationFeature -> MockNavigationImpl")
                 KRelay.register<NavigationFeature>(MockNavigationImpl())
                 println("   → Registering AnalyticsFeature -> MockAnalyticsImpl")
                 KRelay.register<AnalyticsFeature>(MockAnalyticsImpl())
-                println("   ✓ All mock implementations registered!")
-                println("\n💡 NOTE: These are MOCK implementations that just log to console")
-                println("   In a real app, these would be platform-specific implementations:")
-                println("   • ToastFeature -> Android Toast / iOS UIAlertController")
-                println("   • NotificationBridge -> NotificationManager / UNUserNotificationCenter")
-                println("   • NavigationFeature -> NavController / UINavigationController")
-                println("   • AnalyticsFeature -> Firebase Analytics / Mixpanel / Amplitude")
+                println("   ✓ All implementations registered!")
+                println("\n💡 NOTE:")
+                println("   • ToastFeature -> REAL (Android Toast / iOS UIAlertController)")
+                println("   • Other features -> Mock implementations (just log to console)")
                 println("\n✨ Try clicking the buttons below to see KRelay in action!")
                 println("═══════════════════════════════════════════════════════════════════\n")
             }

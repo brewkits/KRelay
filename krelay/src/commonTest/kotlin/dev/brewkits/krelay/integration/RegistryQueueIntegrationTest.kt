@@ -45,7 +45,7 @@ class RegistryQueueIntegrationTest {
     fun testRegisterThenDispatch_ExecutesImmediately() {
         // Given: Register first
         val mock = MockTestFeature()
-        KRelay.register(mock)
+        KRelay.register<TestFeature>(mock)
 
         // When: Dispatch
         KRelay.dispatch<TestFeature> { it.execute("test1") }
@@ -69,7 +69,7 @@ class RegistryQueueIntegrationTest {
 
         // When: Register
         val mock = MockTestFeature()
-        KRelay.register(mock)
+        KRelay.register<TestFeature>(mock)
 
         // Then: Queue cleared (actions replayed)
         assertEquals(0, KRelay.getPendingCount<TestFeature>())
@@ -80,12 +80,12 @@ class RegistryQueueIntegrationTest {
     fun testMultipleRegistrations_ReplacesImplementation() {
         // Given: First registration
         val mock1 = MockTestFeature()
-        KRelay.register(mock1)
+        KRelay.register<TestFeature>(mock1)
         assertTrue(KRelay.isRegistered<TestFeature>())
 
         // When: Second registration
         val mock2 = MockTestFeature()
-        KRelay.register(mock2)
+        KRelay.register<TestFeature>(mock2)
 
         // Then: Still registered (replaced)
         assertTrue(KRelay.isRegistered<TestFeature>())
@@ -94,7 +94,7 @@ class RegistryQueueIntegrationTest {
     @Test
     fun testUnregisterThenDispatch_QueuesAgain() {
         // Given: Register and unregister
-        KRelay.register(MockTestFeature())
+        KRelay.register<TestFeature>(MockTestFeature())
         assertTrue(KRelay.isRegistered<TestFeature>())
 
         KRelay.unregister<TestFeature>()
@@ -122,7 +122,7 @@ class RegistryQueueIntegrationTest {
 
         // And: Subsequent register finds no pending
         val mock = MockTestFeature()
-        KRelay.register(mock)
+        KRelay.register<TestFeature>(mock)
         assertEquals(0, KRelay.getPendingCount<TestFeature>())
     }
 
@@ -134,7 +134,7 @@ class RegistryQueueIntegrationTest {
 
         // When: Register
         val mock = MockTestFeature()
-        KRelay.register(mock)
+        KRelay.register<TestFeature>(mock)
 
         // Then: No actions replayed
         assertEquals(0, mock.executedValues.size)

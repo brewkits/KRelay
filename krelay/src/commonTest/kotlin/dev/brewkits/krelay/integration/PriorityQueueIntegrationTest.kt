@@ -104,7 +104,7 @@ class PriorityQueueIntegrationTest {
 
         // When: Register
         val mock = MockTestFeature()
-        KRelay.register(mock)
+        KRelay.register<TestFeature>(mock)
 
         // Then: Queue cleared
         assertEquals(0, KRelay.getPendingCount<TestFeature>())
@@ -134,7 +134,7 @@ class PriorityQueueIntegrationTest {
     fun testPriorityDispatch_ToRegisteredFeature() {
         // Given: Already registered
         val mock = MockTestFeature()
-        KRelay.register(mock)
+        KRelay.register<TestFeature>(mock)
 
         // When: Dispatch with priority (should execute immediately)
         KRelay.dispatchWithPriority<TestFeature>(ActionPriority.CRITICAL) {

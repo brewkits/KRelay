@@ -20,6 +20,8 @@ moko-biometry = "0.4.0"
 peekaboo = "0.5.2"
 playcore-review = "2.0.1"
 biometric = "1.1.0"
+decompose = "3.2.0"
+decompose-extensions = "3.2.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -50,6 +52,8 @@ peekaboo-image-picker = { module = "io.github.onseok:peekaboo-image-picker", ver
 playcore-review = { module = "com.google.android.play:review", version.ref = "playcore-review" }
 playcore-review-ktx = { module = "com.google.android.play:review-ktx", version.ref = "playcore-review" }
 androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
+decompose = { module = "com.arkivanov.decompose:decompose", version.ref = "decompose" }
+decompose-compose = { module = "com.arkivanov.decompose:extensions-compose", version.ref = "decompose-extensions" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -57,3 +61,4 @@ androidLibrary = { id = "com.android.library", version.ref = "agp" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
