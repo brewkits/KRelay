@@ -86,3 +86,9 @@ GoogleService-Info.plist
 # Misc
 .externalNativeBuild
 .cxx
+
+# Maven Central release artifacts (temporary files)
+CHECKSUMS_*.txt
+MANUAL_UPLOAD_INSTRUCTIONS*.md
+MAVEN_ARTIFACTS_*.md
+docs/MAVEN_CENTRAL_SETUP.md

@@ -6,6 +6,8 @@
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.3.0-blue.svg?style=flat&logo=kotlin)](http://kotlinlang.org)
 [![Multiplatform](https://img.shields.io/badge/Kotlin-Multiplatform-orange.svg?style=flat)](https://kotlinlang.org/docs/multiplatform.html)
+[![Maven Central](https://img.shields.io/maven-central/v/dev.brewkits/krelay.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/dev.brewkits/krelay)
+[![Zero Dependencies](https://img.shields.io/badge/dependencies-zero-success.svg)](https://github.com/brewkits/krelay/blob/main/krelay/build.gradle.kts)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
 ---
@@ -51,14 +53,14 @@ override fun onCreate(savedInstanceState: Bundle?) {
 }
 ```
 
-### Problem 2: Lost Commands During Lifecycle Changes
+### Problem 2: Missed Commands During Lifecycle Changes
 
 **Without KRelay:**
 ```kotlin
-// ❌ Command lost if Activity not ready
+// ❌ Command missed if Activity not ready
 viewModelScope.launch {
     val data = load()
-    nativeBridge.showToast("Done") // Activity not created yet!
+    nativeBridge.showToast("Done") // Activity not created yet - event lost!
 }
 ```
 
@@ -317,6 +319,120 @@ See [@SuperAppWarning](krelay/src/commonMain/kotlin/dev/brewkits/krelay/SuperApp
 ### 🎯 Understanding KRelay
 - **[Positioning](docs/POSITIONING.md)** - Why KRelay exists (The Glue Code Standard)
 - **[Roadmap](ROADMAP.md)** - Future development plans (Desktop, Web, v2.0)
+
+---
+
+## FAQ
+
+### Q: Isn't this just EventBus? I remember the nightmare on Android...
+
+**A:** We understand the PTSD! 😅 But KRelay is fundamentally different:
+
+| Aspect | Old EventBus | KRelay |
+|--------|-------------|--------|
+| **Scope** | Global pub/sub across all components | **Strictly Shared ViewModel → Platform** (one direction) |
+| **Memory Safety** | Manual lifecycle management → leaks everywhere | **Automatic WeakReference** - leak-free by design |
+| **Direction** | Any-to-Any (spaghetti) | **Unidirectional** (ViewModel → View only) |
+| **Discovery** | Events hidden in random places | **Type-safe interfaces** - clear contracts |
+| **Use Case** | General messaging (wrong tool) | **KMP "Last Mile" problem** (right tool) |
+
+**Key difference**: EventBus was used for component-to-component communication (wrong pattern). KRelay is for **ViewModel-to-Platform** bridge only (the missing piece in KMP).
+
+---
+
+### Q: Why not just use DI (Koin/Hilt) to inject platform helpers?
+
+**A:** DI is perfect for `ApplicationContext`-scoped helpers (file paths, toasts). **KRelay complements DI, doesn't replace it.**
+
+The problem arises with **Activity-scoped actions** (Navigation, Dialogs, Permissions):
+
+**DI Approach:**
+```kotlin
+// ❌ Can't inject Activity into ViewModel - memory leak!
+class LoginViewModel(private val activity: Activity) // LEAK!
+
+// ⚠️ Need manual WeakReference + attach/detach boilerplate
+interface ViewAttached { fun attach(activity: Activity) }
+```
+
+**KRelay Approach:**
+```kotlin
+// ✅ ViewModel stays pure - no Activity reference
+class LoginViewModel {
+    fun onSuccess() {
+        KRelay.dispatch<NavFeature> { it.goToHome() }
+    }
+}
+
+// Activity registers itself automatically
+override fun onCreate(savedInstanceState: Bundle?) {
+    KRelay.register<NavFeature>(AndroidNav(this))
+}
+```
+
+**When to use what:**
+- **DI**: For stateless helpers, repositories, use cases (ApplicationContext-scoped)
+- **KRelay**: For Activity-scoped UI actions (Navigation, Permissions, Dialogs)
+
+---
+
+### Q: Can't I just use `LaunchedEffect` + `SharedFlow`? Why add another library?
+
+**A:** Absolutely! `LaunchedEffect` is lifecycle-aware and doesn't leak. KRelay solves two **different** problems:
+
+**1. Boilerplate Reduction**
+
+**Without KRelay:**
+```kotlin
+// ViewModel
+class LoginViewModel {
+    private val _navEvents = MutableSharedFlow<NavEvent>()
+    val navEvents = _navEvents.asSharedFlow()
+
+    fun onSuccess() {
+        viewModelScope.launch {
+            _navEvents.emit(NavEvent.GoHome)
+        }
+    }
+}
+
+// Every screen needs this collector
+@Composable
+fun LoginScreen(viewModel: LoginViewModel) {
+    val navigator = LocalNavigator.current
+    LaunchedEffect(Unit) {
+        viewModel.navEvents.collect { event ->
+            when (event) {
+                is NavEvent.GoHome -> navigator.push(HomeScreen())
+                // ... handle all events
+            }
+        }
+    }
+}
+```
+
+**With KRelay:**
+```kotlin
+// ViewModel
+class LoginViewModel {
+    fun onSuccess() {
+        KRelay.dispatch<NavFeature> { it.goToHome() }
+    }
+}
+
+// One-time registration in MainActivity
+override fun onCreate(savedInstanceState: Bundle?) {
+    KRelay.register<NavFeature>(VoyagerNav(navigator))
+}
+```
+
+**2. Missed Events During Rotation**
+
+If you dispatch an event **during rotation** (between old Activity destroy → new Activity create), `LaunchedEffect` isn't running yet → **event lost**.
+
+KRelay's **Sticky Queue** catches these events and replays them when the new Activity is ready.
+
+**Trade-off**: If you only have 1-2 features and prefer explicit Flow collectors, stick with `LaunchedEffect`. If you have many platform actions (Toast, Nav, Permissions, Haptics), KRelay reduces boilerplate significantly.
 
 ---
 
