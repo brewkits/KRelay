@@ -133,7 +133,11 @@ object KRelay {
      * Reliability: Queues action if implementation is not available yet.
      * Queue Management: Enforces size limits and expires old actions.
      *
-     * ⚠️ **CRITICAL WARNING**: Queue is lost on process death (OS kills app).
+     * ⚠️ **CRITICAL WARNING 1**: Queue is lost on process death (OS kills app).
+     * ⚠️ **CRITICAL WARNING 2**: Lambda captures can cause memory leaks.
+     *
+     * ## Process Death Risk
+     * See @ProcessDeathUnsafe for safe vs dangerous use cases.
      *
      * **Safe Use Cases (UI feedback - acceptable to lose):**
      * - Toast/Snackbar notifications
@@ -148,11 +152,23 @@ object KRelay {
      * - Critical analytics → Use persistent queue
      * - Database writes → Use Room/SQLite directly
      *
-     * See @ProcessDeathUnsafe annotation for complete guidance.
+     * ## Memory Leak Risk
+     * See @MemoryLeakWarning for lambda capture best practices.
+     *
+     * **TL;DR Safe Pattern**:
+     * ```kotlin
+     * // ✅ Good: Capture primitives only
+     * val message = viewModel.data
+     * KRelay.dispatch<ToastFeature> { it.show(message) }
+     *
+     * // ❌ Bad: Captures entire ViewModel
+     * KRelay.dispatch<ToastFeature> { it.show(viewModel.data) }
+     * ```
      *
      * @param block The action to execute on the platform implementation
      */
     @ProcessDeathUnsafe
+    @MemoryLeakWarning
     @Suppress("UNCHECKED_CAST")
     inline fun <reified T : RelayFeature> dispatch(noinline block: (T) -> Unit) {
         val kClass = T::class
@@ -300,6 +316,150 @@ object KRelay {
                 0
             }
         }
+    }
+
+    /**
+     * Gets the number of currently registered features.
+     * Only counts features with alive implementations (not GC'd).
+     */
+    fun getRegisteredFeaturesCount(): Int {
+        return lock.withLock {
+            registry.count { it.value.get() != null }
+        }
+    }
+
+    /**
+     * Gets the total number of pending actions across all features.
+     * Automatically removes expired actions before counting.
+     */
+    fun getTotalPendingCount(): Int {
+        return lock.withLock {
+            var total = 0
+            pendingQueue.forEach { (_, queue) ->
+                queue.removeAll { it.isExpired(actionExpiryMs) }
+                total += queue.size
+            }
+            total
+        }
+    }
+
+    /**
+     * Gets detailed debug information about KRelay's current state.
+     *
+     * @return DebugInfo object containing:
+     *   - Number of registered features
+     *   - List of registered feature names
+     *   - Pending actions per feature
+     *   - Total pending actions
+     *   - Configuration settings
+     */
+    fun getDebugInfo(): DebugInfo {
+        return lock.withLock {
+            val registeredFeatures = mutableListOf<String>()
+            val featureQueues = mutableMapOf<String, Int>()
+            var totalPending = 0
+            var expiredCount = 0
+
+            // Collect registered features (alive only)
+            registry.forEach { (kClass, weakRef) ->
+                if (weakRef.get() != null) {
+                    registeredFeatures.add(kClass.simpleName ?: "Unknown")
+                }
+            }
+
+            // Collect queue info and cleanup expired
+            pendingQueue.forEach { (kClass, queue) ->
+                val beforeSize = queue.size
+                queue.removeAll { it.isExpired(actionExpiryMs) }
+                val afterSize = queue.size
+
+                expiredCount += (beforeSize - afterSize)
+
+                if (afterSize > 0) {
+                    featureQueues[kClass.simpleName ?: "Unknown"] = afterSize
+                    totalPending += afterSize
+                }
+            }
+
+            DebugInfo(
+                registeredFeaturesCount = registeredFeatures.size,
+                registeredFeatures = registeredFeatures,
+                featureQueues = featureQueues,
+                totalPendingActions = totalPending,
+                expiredActionsRemoved = expiredCount,
+                maxQueueSize = maxQueueSize,
+                actionExpiryMs = actionExpiryMs,
+                debugMode = debugMode
+            )
+        }
+    }
+
+    /**
+     * Dumps KRelay's current state to console for debugging.
+     *
+     * Output includes:
+     * - Number of registered features and their names
+     * - Pending actions per feature
+     * - Total pending actions
+     * - Configuration settings
+     *
+     * Example output:
+     * ```
+     * === KRelay Debug Dump ===
+     * Registered Features: 3
+     *   - ToastFeature (alive)
+     *   - NavigationFeature (alive)
+     *   - PermissionFeature (alive)
+     *
+     * Pending Actions by Feature:
+     *   - ToastFeature: 2 events
+     *   - PermissionFeature: 5 events
+     *
+     * Total Pending: 7 events
+     * Expired & Removed: 2 events
+     *
+     * Configuration:
+     *   - Max Queue Size: 100
+     *   - Action Expiry: 300000ms (5.0 min)
+     *   - Debug Mode: true
+     * ========================
+     * ```
+     */
+    fun dump() {
+        val info = getDebugInfo()
+
+        println("=== KRelay Debug Dump ===")
+        println("Registered Features: ${info.registeredFeaturesCount}")
+        if (info.registeredFeatures.isNotEmpty()) {
+            info.registeredFeatures.forEach { featureName ->
+                println("  - $featureName (alive)")
+            }
+        } else {
+            println("  (none)")
+        }
+
+        println()
+        println("Pending Actions by Feature:")
+        if (info.featureQueues.isNotEmpty()) {
+            info.featureQueues.forEach { (featureName, count) ->
+                println("  - $featureName: $count events")
+            }
+        } else {
+            println("  (none)")
+        }
+
+        println()
+        println("Total Pending: ${info.totalPendingActions} events")
+        if (info.expiredActionsRemoved > 0) {
+            println("Expired & Removed: ${info.expiredActionsRemoved} events")
+        }
+
+        println()
+        println("Configuration:")
+        println("  - Max Queue Size: ${info.maxQueueSize}")
+        println("  - Action Expiry: ${info.actionExpiryMs}ms (${info.actionExpiryMs / 60000.0} min)")
+        println("  - Debug Mode: ${info.debugMode}")
+        println("========================")
     }
 
     /**

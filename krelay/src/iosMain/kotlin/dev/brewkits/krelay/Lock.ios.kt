@@ -1,40 +1,28 @@
 package dev.brewkits.krelay
 
-import kotlinx.cinterop.*
-import platform.posix.*
+import platform.Foundation.NSRecursiveLock
 
 /**
- * iOS implementation of Lock using pthread_mutex_t.
+ * iOS implementation of Lock using NSRecursiveLock.
  *
- * pthread_mutex provides:
- * - POSIX-compliant mutex
- * - Low-level thread synchronization
- * - Efficient native implementation
+ * Why NSRecursiveLock over pthread_mutex?
+ * 1. **Memory Safety**: ARC handles cleanup automatically (no manual free() needed)
+ * 2. **Reentrant Support**: Same thread can acquire lock multiple times without deadlock
+ * 3. **Simplicity**: Pure object-oriented API vs C-style pthread
+ * 4. **Performance**: Sufficient for UI-thread synchronization tasks
+ *
+ * This is critical for future instance-based KRelay (v2.0) where multiple
+ * RelayHub instances may be created and destroyed during app lifecycle.
  */
-@OptIn(ExperimentalForeignApi::class)
 actual class Lock {
-    private val mutex: pthread_mutex_t = nativeHeap.alloc()
-
-    init {
-        pthread_mutex_init(mutex.ptr, null)
-    }
+    private val lock = NSRecursiveLock()
 
     actual fun <T> withLock(block: () -> T): T {
-        pthread_mutex_lock(mutex.ptr)
+        lock.lock()
         try {
             return block()
         } finally {
-            pthread_mutex_unlock(mutex.ptr)
+            lock.unlock()
         }
-    }
-
-    /**
-     * Cleanup mutex resources.
-     * Note: In Kotlin/Native, this will be called by the GC.
-     */
-    @Suppress("unused")
-    fun destroy() {
-        pthread_mutex_destroy(mutex.ptr)
-        nativeHeap.free(mutex)
     }
 }

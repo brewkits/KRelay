@@ -11,7 +11,7 @@ Start here to understand KRelay and get it working in your project:
 1. **[Main README](../README.md)** - Overview, Quick Start, and Key Features
 2. **[Integration Guides](INTEGRATION_GUIDES.md)** - How to integrate with Voyager, Moko, Peekaboo, etc.
 3. **[Quick Reference](QUICK_REFERENCE.md)** - Complete API documentation
-4. **[Known Issues](KNOWN_ISSUES.md)** ⚠️ - Current known issues and workarounds
+4. **[iOS Test Report](IOS_TEST_REPORT.md)** 📱 - v1.1.0 iOS validation results
 
 ---
 

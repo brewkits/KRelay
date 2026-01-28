@@ -1,4 +1,4 @@
-# KRelay v1.0.1 - Quick Reference Card
+# KRelay v1.1.0 - Quick Reference Card
 
 ## 🚀 Installation
 
@@ -105,6 +105,26 @@ KRelay.unregister<ToastFeature>()
 // Reset everything
 KRelay.reset()
 ```
+
+### Diagnostic Functions (v1.1.0+)
+
+```kotlin
+// Print visual system state to console
+KRelay.dump()
+
+// Get diagnostic data programmatically
+val info: DebugInfo = KRelay.getDebugInfo()
+// Returns: registeredFeaturesCount, registeredFeatures, featureQueues,
+//          totalPendingActions, expiredActionsRemoved, maxQueueSize, etc.
+
+// Get count of registered features
+val count = KRelay.getRegisteredFeaturesCount()
+
+// Get total pending actions across all features
+val totalPending = KRelay.getTotalPendingCount()
+```
+
+### Priority Dispatch
 
 ```kotlin
 import dev.brewkits.krelay.ActionPriority

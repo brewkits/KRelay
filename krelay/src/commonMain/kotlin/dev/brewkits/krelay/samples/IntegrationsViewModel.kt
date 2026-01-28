@@ -265,10 +265,6 @@ class IntegrationsViewModel {
         println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         println("🔄 [Integration Demo] Checking for updates")
 
-        KRelay.dispatch<ToastFeature> {
-            it.showShort("Checking for updates...")
-        }
-
         KRelay.dispatch<SystemInteractionFeature> {
             it.checkForAppUpdates { updateAvailable ->
                 if (updateAvailable) {

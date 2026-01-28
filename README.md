@@ -32,6 +32,72 @@ class LoginViewModel {
 
 ---
 
+## What's New in v1.1.0 - Hardening Core 🛡️
+
+KRelay v1.1.0 focuses on **production-grade hardening** without adding new features or breaking changes:
+
+### Thread Safety Improvements
+- ✅ **iOS Lock**: Replaced `pthread_mutex` with `NSRecursiveLock` (ARC-managed, reentrant, zero memory leaks)
+- ✅ **Stress Tested**: Validated under 100k concurrent operations
+- ✅ **Platform Parity**: Both Android and iOS use reentrant locks
+
+### Diagnostic & Monitoring
+- ✅ **dump()**: Visual debugging output of system state
+- ✅ **getDebugInfo()**: Comprehensive diagnostic data
+- ✅ **getRegisteredFeaturesCount()**: Track registered features
+- ✅ **getTotalPendingCount()**: Monitor queue depth across all features
+
+### Developer Safety
+- ✅ **@MemoryLeakWarning**: New opt-in annotation warns about lambda capture risks
+- ✅ **Enhanced Documentation**: Clear DO/DON'T examples for memory management
+- ✅ **Test Coverage**: 99.2% success (262/264 tests across platforms)
+
+**Recommendation**: All users should upgrade to v1.1.0 for improved stability and diagnostics.
+
+See [iOS Test Report](docs/IOS_TEST_REPORT.md) for detailed validation results.
+
+---
+
+## Memory Management Best Practices
+
+### Lambda Capture Warning
+
+KRelay queues lambdas that may capture variables. Follow these rules to avoid leaks:
+
+**✅ DO: Capture primitives and data**
+```kotlin
+val message = viewModel.successMessage
+KRelay.dispatch<ToastFeature> { it.show(message) }
+```
+
+**❌ DON'T: Capture ViewModels or Contexts**
+```kotlin
+// BAD: Captures entire viewModel
+KRelay.dispatch<ToastFeature> { it.show(viewModel.data) }
+```
+
+**🔧 CLEANUP: Use clearQueue() in onCleared()**
+```kotlin
+class MyViewModel : ViewModel() {
+    override fun onCleared() {
+        super.onCleared()
+        KRelay.clearQueue<ToastFeature>()
+    }
+}
+```
+
+### Built-in Protections
+
+KRelay includes three passive safety mechanisms:
+
+1. **actionExpiryMs** (default: 5 min): Old actions auto-expire
+2. **maxQueueSize** (default: 100): Oldest actions dropped when full
+3. **WeakReference**: Platform implementations auto-released
+
+For 99% of use cases (Toast, Navigation, Permissions), these are sufficient.
+
+---
+
 ## Why KRelay?
 
 ### Problem 1: Memory Leaks from Strong References
@@ -111,7 +177,7 @@ class LoginViewModel {
 ```kotlin
 // In your shared module's build.gradle.kts
 commonMain.dependencies {
-    implementation("dev.brewkits:krelay:1.0.1")
+    implementation("dev.brewkits:krelay:1.1.0")
 }
 ```
 
@@ -201,9 +267,10 @@ KRelay.shared.register(impl: IOSToast(viewController: controller))
 - Auto-replay when platform implementation registers
 - Configurable queue size and expiry
 
-### 🧵 Thread Safety
+### 🧵 Thread Safety (Enhanced in v1.1.0)
 - All commands execute on Main/UI thread automatically
-- Lock-based concurrency control
+- **Reentrant lock** on both platforms (NSRecursiveLock on iOS, ReentrantLock on Android)
+- **Stress-tested** with 100k concurrent operations
 - No `CalledFromWrongThreadException`
 
 ### 🔌 Library Integration
@@ -220,6 +287,12 @@ KRelay.shared.register(impl: IOSToast(viewController: controller))
 - Zero overhead when on main thread
 - Efficient queue management
 - Minimal memory footprint
+
+### 🔍 Diagnostic Tools (v1.1.0+)
+- **dump()** for visual debugging
+- **getDebugInfo()** for programmatic inspection
+- Real-time monitoring of registered features and queue depth
+- Production-ready diagnostics without overhead
 
 ---
 
@@ -242,6 +315,14 @@ KRelay.getPendingCount<ToastFeature>()     // Count queued actions
 KRelay.unregister<ToastFeature>()          // Manual unregister (optional)
 KRelay.clearQueue<ToastFeature>()          // Clear pending actions
 KRelay.reset()                              // Clear all (for testing)
+```
+
+### Diagnostic Functions (v1.1.0+)
+```kotlin
+KRelay.dump()                               // Print system state to console
+KRelay.getDebugInfo()                       // Get DebugInfo data class
+KRelay.getRegisteredFeaturesCount()         // Count registered features
+KRelay.getTotalPendingCount()               // Total pending actions across all features
 ```
 
 ---

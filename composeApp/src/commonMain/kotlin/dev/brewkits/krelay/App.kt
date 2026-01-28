@@ -1,6 +1,8 @@
 package dev.brewkits.krelay
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,9 +50,11 @@ fun DemoSelectionMenu(onDemoSelected: (DemoType) -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp),
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp)
+                    .padding(top = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
                     text = "🚀 KRelay Demo App",
@@ -67,7 +71,7 @@ fun DemoSelectionMenu(onDemoSelected: (DemoType) -> Unit) {
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                 )
 
-                Spacer(modifier = Modifier.height(48.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // Basic Demo Card
                 DemoCard(
@@ -78,8 +82,6 @@ fun DemoSelectionMenu(onDemoSelected: (DemoType) -> Unit) {
                             "• Feature registration",
                     onClick = { onDemoSelected(DemoType.BASIC) }
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
 
                 // Voyager Integration Demo Card (DISABLED)
                 DemoCard(
@@ -97,8 +99,6 @@ fun DemoSelectionMenu(onDemoSelected: (DemoType) -> Unit) {
                     enabled = false
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
-
                 // Decompose Integration Demo Card
                 DemoCard(
                     title = "🧩 Decompose Integration",
@@ -111,8 +111,6 @@ fun DemoSelectionMenu(onDemoSelected: (DemoType) -> Unit) {
                     onClick = { onDemoSelected(DemoType.DECOMPOSE) },
                     containerColor = MaterialTheme.colorScheme.secondaryContainer
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
 
                 // Library Integrations Demo Card
                 DemoCard(
@@ -128,7 +126,7 @@ fun DemoSelectionMenu(onDemoSelected: (DemoType) -> Unit) {
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Info text
                 Text(

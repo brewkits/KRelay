@@ -27,6 +27,48 @@ class MyViewModel {
 
 ---
 
+## Understanding the Three Warnings
+
+KRelay has three opt-in warnings to guide safe usage:
+
+### 1. @ProcessDeathUnsafe
+**What it means**: Queue is lost when OS kills the app (process death)
+
+**Safe for**: Toast, Navigation, Haptics, UI feedback
+**Dangerous for**: Payments, Uploads, Critical Analytics
+
+See: [Anti-Patterns Guide](./ANTI_PATTERNS.md)
+
+### 2. @SuperAppWarning
+**What it means**: Global singleton may cause conflicts in large apps
+
+**Safe for**: Single-module apps, small-medium projects
+**Caution for**: Super Apps (Grab/Gojek style) - use feature namespacing
+
+See: [ADR-0001](./adr/0001-singleton-and-serialization-tradeoffs.md)
+
+### 3. @MemoryLeakWarning (v1.1.0+)
+**What it means**: Lambdas may capture ViewModels/Contexts causing memory leaks
+
+**Safe when**: Capturing primitives/data only
+**Dangerous when**: Capturing entire ViewModels or Android Contexts
+
+**Best Practice**:
+```kotlin
+// ✅ Good: Capture primitives only
+val message = viewModel.data
+KRelay.dispatch<ToastFeature> { it.show(message) }
+
+// ❌ Bad: Captures entire viewModel
+KRelay.dispatch<ToastFeature> { it.show(viewModel.data) }
+```
+
+**Solution**: Call `clearQueue()` in ViewModel's `onCleared()` or capture primitives only.
+
+See: [Main README - Memory Management](../README.md#memory-management-best-practices)
+
+---
+
 ## Solutions (Ranked by Convenience)
 
 ### ⭐ Option 1: Module-Level Suppression (RECOMMENDED)
@@ -46,6 +88,7 @@ kotlin {
                 // Suppress warnings for entire module
                 optIn("dev.brewkits.krelay.ProcessDeathUnsafe")
                 optIn("dev.brewkits.krelay.SuperAppWarning")
+                optIn("dev.brewkits.krelay.MemoryLeakWarning")  // v1.1.0+
             }
         }
     }
@@ -82,7 +125,11 @@ Suppress for a specific file if that file only does safe operations.
 
 ```kotlin
 // At top of file
-@file:OptIn(ProcessDeathUnsafe::class, SuperAppWarning::class)
+@file:OptIn(
+    ProcessDeathUnsafe::class,
+    SuperAppWarning::class,
+    MemoryLeakWarning::class  // v1.1.0+
+)
 
 package com.myapp.viewmodels
 
@@ -187,6 +234,7 @@ kotlin {
             languageSettings {
                 optIn("dev.brewkits.krelay.ProcessDeathUnsafe")
                 optIn("dev.brewkits.krelay.SuperAppWarning")
+                optIn("dev.brewkits.krelay.MemoryLeakWarning")  // v1.1.0+
             }
         }
     }
@@ -297,7 +345,8 @@ allprojects {
         kotlinOptions {
             freeCompilerArgs += listOf(
                 "-opt-in=dev.brewkits.krelay.ProcessDeathUnsafe",
-                "-opt-in=dev.brewkits.krelay.SuperAppWarning"
+                "-opt-in=dev.brewkits.krelay.SuperAppWarning",
+                "-opt-in=dev.brewkits.krelay.MemoryLeakWarning"  // v1.1.0+
             )
         }
     }
@@ -374,6 +423,7 @@ WorkManager.getInstance(context).enqueue(work)
 languageSettings {
     optIn("dev.brewkits.krelay.ProcessDeathUnsafe")
     optIn("dev.brewkits.krelay.SuperAppWarning")
+    optIn("dev.brewkits.krelay.MemoryLeakWarning")  // v1.1.0+
 }
 ```
 
@@ -423,5 +473,6 @@ languageSettings {
 
 - [ProcessDeathUnsafe Annotation](../krelay/src/commonMain/kotlin/dev/brewkits/krelay/ProcessDeathUnsafe.kt)
 - [SuperAppWarning Annotation](../krelay/src/commonMain/kotlin/dev/brewkits/krelay/SuperAppWarning.kt)
+- [MemoryLeakWarning Annotation](../krelay/src/commonMain/kotlin/dev/brewkits/krelay/MemoryLeakWarning.kt) (v1.1.0+)
 - [Anti-Patterns Guide](./ANTI_PATTERNS.md)
 - [ADR-0001](./adr/0001-singleton-and-serialization-tradeoffs.md)
