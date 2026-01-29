@@ -11,7 +11,29 @@
       "Bash(grep:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(wc:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(chmod:*)",
+      "Bash(git tag:*)",
+      "Bash(gh release create:*)",
+      "Bash(zip:*)",
+      "Bash(unzip:*)",
+      "Bash(tee:*)",
+      "Bash(Tests)",
+      "Bash(Test)",
+      "Bash(git restore:*)",
+      "Bash(while read file)",
+      "Bash(do if [ ! -f \"$file.sha256\" ])",
+      "Bash(then shasum -a 256 \"$file\")",
+      "Bash(tree:*)",
+      "Bash(file=\"krelay-android-1.1.0.aar\")",
+      "Bash(if [ -f \"$file\" ])",
+      "Bash(then echo \"Generating checksums and signature for: $file\" md5sum \"$file\")",
+      "Bash(jar:*)",
+      "Bash(gpg:*)"
     ]
   }
 }
