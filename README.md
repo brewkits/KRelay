@@ -1,5 +1,7 @@
 # KRelay
 
+![KRelay Cover](rrelay.png)
+
 > **The Glue Code Standard for Kotlin Multiplatform**
 >
 > Safe, leak-free bridge between shared code and platform-specific APIs
