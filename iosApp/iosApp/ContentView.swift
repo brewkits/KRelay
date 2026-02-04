@@ -6,9 +6,8 @@ struct ComposeView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
         let viewController = MainViewControllerKt.MainViewController()
 
-        // Register KRelay implementations
-        // Note: iOS demo is simplified - see Android for full Voyager integration demo
-        KRelaySetup.registerImplementations()
+        // Register all KRelay feature implementations for the demo app
+        KRelaySetup.registerImplementations(rootViewController: viewController)
 
         return viewController
     }

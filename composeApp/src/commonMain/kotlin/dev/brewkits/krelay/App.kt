@@ -15,6 +15,8 @@ import dev.brewkits.krelay.integration.decompose.DecomposeDemo
 import dev.brewkits.krelay.integration.voyager.VoyagerDemo
 import dev.brewkits.krelay.integrations.IntegrationsDemo
 
+import dev.brewkits.krelay.superapp.SuperAppDemo
+
 /**
  * Main App entry point.
  *
@@ -24,18 +26,17 @@ import dev.brewkits.krelay.integrations.IntegrationsDemo
 @Composable
 fun App() {
     // Default to IntegrationsDemo (REAL implementations only)
-    var selectedDemo by remember { mutableStateOf<DemoType?>(DemoType.INTEGRATIONS) }
+    var selectedDemo by remember { mutableStateOf<DemoType?>(null) }
 
     when (selectedDemo) {
         DemoType.BASIC -> BasicDemo(onBackClick = { selectedDemo = null })
-        // DemoType.VOYAGER -> VoyagerDemo(onBackClick = { selectedDemo = null })
-        // Temporarily disabled due to Voyager lifecycle bug
         DemoType.VOYAGER -> {
             // Fallback to menu with message
             DemoSelectionMenu(onDemoSelected = { selectedDemo = it })
         }
         DemoType.DECOMPOSE -> DecomposeDemo(onBackClick = { selectedDemo = null })
         DemoType.INTEGRATIONS -> IntegrationsDemo(onBackClick = { selectedDemo = null })
+        DemoType.SUPER_APP -> SuperAppDemo(onBackClick = { selectedDemo = null })
         null -> DemoSelectionMenu(onDemoSelected = { selectedDemo = it })
     }
 }
@@ -72,6 +73,18 @@ fun DemoSelectionMenu(onDemoSelected: (DemoType) -> Unit) {
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
+
+                // Super App Demo
+                DemoCard(
+                    title = "🚀 Super App Demo (v2.0)",
+                    description = "Shows the new instance-based API:\n" +
+                            "• Multiple, isolated KRelay instances\n" +
+                            "• `KRelay.create(\"Scope\")`\n" +
+                            "• No conflicts between modules\n" +
+                            "• Perfect for DI and large apps",
+                    onClick = { onDemoSelected(DemoType.SUPER_APP) },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
 
                 // Basic Demo Card
                 DemoCard(
@@ -189,5 +202,6 @@ enum class DemoType {
     BASIC,
     VOYAGER,
     DECOMPOSE,
-    INTEGRATIONS
+    INTEGRATIONS,
+    SUPER_APP
 }

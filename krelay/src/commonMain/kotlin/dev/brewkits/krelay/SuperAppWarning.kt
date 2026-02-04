@@ -110,34 +110,46 @@ package dev.brewkits.krelay
  * }
  * ```
  *
- * ## Future Solution: Instance-Based KRelay (v2.0 Planned)
+ * ## ✅ v2.0 Solution: Instance-Based KRelay (NOW AVAILABLE)
  *
- * **Proposed API Design:**
+ * **KRelay v2.0 introduces instance-based API for Super Apps:**
  * ```kotlin
  * // Option 1: Manual instance creation
  * val rideModuleKRelay = KRelay.create("RideModule")
+ * rideModuleKRelay.register<ToastFeature>(RideToastImpl())
  * rideModuleKRelay.dispatch<ToastFeature> { it.show("Ride booked!") }
  *
  * val foodModuleKRelay = KRelay.create("FoodModule")
+ * foodModuleKRelay.register<ToastFeature>(FoodToastImpl())
  * foodModuleKRelay.dispatch<ToastFeature> { it.show("Order placed!") }
  *
- * // Option 2: DI-friendly
+ * // Option 2: DI-friendly (recommended for large apps)
  * class RideViewModel(private val kRelay: KRelayInstance) {
  *     fun bookRide() {
  *         kRelay.dispatch<ToastFeature> { it.show("Booking...") }
  *     }
  * }
  *
- * // DI Setup
- * single { KRelay.create("RideModule") }
- * viewModel { RideViewModel(get()) }
+ * // Koin DI Setup
+ * val rideModule = module {
+ *     single { KRelay.create("RideModule") }
+ *     viewModel { RideViewModel(get()) }
+ * }
+ *
+ * // Option 3: Builder pattern for custom configuration
+ * val instance = KRelay.builder("MyModule")
+ *     .maxQueueSize(50)
+ *     .actionExpiry(60_000L)
+ *     .debugMode(true)
+ *     .build()
  * ```
  *
  * **Benefits:**
- * - ✅ True module isolation
- * - ✅ Testability with DI
- * - ✅ Multi-tenant support
- * - ✅ Backward compatible (singleton still available)
+ * - ✅ True module isolation (each instance has separate registry)
+ * - ✅ Testability with DI (easy to mock instances)
+ * - ✅ Multi-tenant support (different instances per tenant)
+ * - ✅ 100% Backward compatible (singleton still works)
+ * - ✅ Per-instance configuration (different queue sizes, expiry times)
  *
  * ## Decision Guide
  *
@@ -145,11 +157,11 @@ package dev.brewkits.krelay
  * |----------|---------------|----------------------|
  * | Small-Medium App | ✅ Yes | Current singleton is perfect |
  * | Single-Module App | ✅ Yes | No concerns |
- * | Super App (Grab/Gojek style) | ⚠️ With Caution | Use Feature Namespacing |
- * | Multi-Tenant SaaS | ❌ Problematic | Wait for v2.0 or fork |
- * | Library (used by others) | ❌ Problematic | Expose DI-friendly API |
+ * | Super App (Grab/Gojek style) | ✅ v2.0 Instances | Use `KRelay.create("ModuleName")` per module |
+ * | Multi-Tenant SaaS | ✅ v2.0 Instances | Use `KRelay.create("Tenant_${id}")` per tenant |
+ * | Library (used by others) | ✅ v2.0 Instances | Accept `KRelayInstance` parameter in DI |
  *
- * ## When to Be Concerned
+ * ## When to Use v2.0 Instances
  *
  * Ask yourself:
  * - ❓ Do I have 5+ independent feature modules?
@@ -157,24 +169,25 @@ package dev.brewkits.krelay
  * - ❓ Am I building a white-label app with per-client customization?
  * - ❓ Do I need to mock KRelay in 100+ unit tests?
  *
- * If **YES to 2+**, consider:
- * 1. Use Feature Namespacing workaround
- * 2. Wait for v2.0 instance-based API
- * 3. Contribute to v2.0 development!
+ * If **YES to 2+**, use v2.0 instances:
+ * 1. ✅ **Preferred**: Use `KRelay.create("ModuleName")` for isolated instances
+ * 2. ✅ **DI Integration**: Inject `KRelayInstance` into ViewModels/UseCases
+ * 3. ✅ **Testing**: Each test gets its own instance (no `reset()` needed)
+ * 4. ⚠️ **Fallback**: Feature Namespacing still works if you prefer singleton
  *
  * ## Summary
  *
  * - ✅ **For most apps**: Singleton is simple, reliable, zero-config
- * - ⚠️ **For Super Apps**: Use feature namespacing or wait for v2.0
- * - ❌ **For libraries**: Avoid exposing KRelay singleton to consumers
- * - 🔜 **v2.0 Solution**: Instance-based KRelay with DI support
+ * - ✅ **For Super Apps**: Use v2.0 instances via `KRelay.create("ModuleName")`
+ * - ✅ **For libraries**: Accept `KRelayInstance` parameter in DI (v2.0)
+ * - ✅ **For testing**: v2.0 instances eliminate need for `reset()` calls
+ * - ✅ **100% Backward Compatible**: Existing singleton code works unchanged
  *
  * @see [ADR-0001](../../docs/adr/0001-singleton-and-serialization-tradeoffs.md) for detailed analysis
  */
 @RequiresOptIn(
-    message = "KRelay uses a global singleton. In Super Apps with multiple modules, " +
-            "use Feature Namespacing (e.g., RideModuleToastFeature) to avoid conflicts. " +
-            "See @SuperAppWarning documentation for workarounds.",
+    message = "KRelay uses a global singleton. For Super Apps, use KRelay.create() for per-module instances. " +
+            "See @SuperAppWarning and KRelayInstance documentation for details.",
     level = RequiresOptIn.Level.WARNING
 )
 @Retention(AnnotationRetention.BINARY)

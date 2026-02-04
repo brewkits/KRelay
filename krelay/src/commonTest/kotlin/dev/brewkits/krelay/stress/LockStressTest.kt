@@ -2,6 +2,7 @@ package dev.brewkits.krelay.stress
 
 import dev.brewkits.krelay.KRelay
 import dev.brewkits.krelay.RelayFeature
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.*
 import kotlin.test.*
 
@@ -73,13 +74,12 @@ class LockStressTest {
         // Wait a bit for all dispatches to process (they run on main thread)
         delay(2000)
 
-        // Verify most operations completed (allowing for some loss in test environment)
-        // The goal is to ensure no crashes and that Lock protects KRelay internals
+        // With thread-safe counter, we can now expect exact count
         val actualCount = counter.count
-        val minExpected = (expectedTotal * 0.90).toInt() // Allow 10% loss in concurrent test env
-        assertTrue(
-            actualCount >= minExpected,
-            "Counter should be >= $minExpected (90% of $expectedTotal), got $actualCount"
+        assertEquals(
+            expectedTotal,
+            actualCount,
+            "Counter should be exactly $expectedTotal, got $actualCount"
         )
     }
 
@@ -94,7 +94,7 @@ class LockStressTest {
     @Test
     fun stressTest_RegisterUnregisterRace() = runBlocking {
         val counter = SimpleCounter()
-        var completedDispatches = 0
+        val completedDispatches = atomic(0)
 
         val registerJob = launch(Dispatchers.Default) {
             repeat(100) {
@@ -110,7 +110,7 @@ class LockStressTest {
                 try {
                     KRelay.dispatch<CounterFeature> {
                         it.increment()
-                        completedDispatches++
+                        completedDispatches.incrementAndGet()
                     }
                     delay(1)
                 } catch (e: Exception) {
@@ -124,7 +124,7 @@ class LockStressTest {
         delay(1000) // Wait for any queued operations
 
         // The test passes if no exceptions were thrown
-        assertTrue(completedDispatches >= 0, "Test should complete without crashes")
+        assertTrue(completedDispatches.value >= 0, "Test should complete without crashes")
     }
 
     /**
@@ -271,14 +271,15 @@ interface CounterFeature3 : RelayFeature {
 }
 
 // Simple counter for stress testing
-// Note: In production, KRelay dispatches to main thread (serialized via Handler.post/GCD).
-// These tests verify that KRelay's internal Lock protects its registry and queue.
-// The counter itself doesn't need thread safety - the test delays allow operations to complete.
+// Thread-safe counter using kotlinx.atomicfu for reliable concurrent testing.
+// While KRelay dispatches to main thread in production, these stress tests verify
+// that KRelay's internal Lock protects its registry and queue during concurrent dispatch operations.
+// The counter uses atomic operations to accurately measure successful dispatches.
 class SimpleCounter : CounterFeature, CounterFeature2, CounterFeature3 {
-    private var _count = 0
-    val count: Int get() = _count
+    private val _count = atomic(0)
+    val count: Int get() = _count.value
 
     override fun increment() {
-        _count++
+        _count.incrementAndGet()
     }
 }

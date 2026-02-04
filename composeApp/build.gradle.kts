@@ -48,6 +48,9 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
 
+            // Material Icons Extended (for AutoMirrored icons and additional icons)
+            implementation(compose.materialIconsExtended)
+
             // Voyager - Navigation library for KMP (has lifecycle bugs, using Decompose instead)
             implementation("cafe.adriel.voyager:voyager-navigator:1.0.0")
             implementation("cafe.adriel.voyager:voyager-transitions:1.0.0")
