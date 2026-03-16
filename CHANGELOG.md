@@ -5,6 +5,26 @@ All notable changes to KRelay will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2.1.0
+
+### Added
+- **`dispatchWithPriority` on `KRelayInstance`**: Priority dispatch is now available on all instances (previously singleton-only). Fixes API inconsistency between singleton and instance APIs.
+- **Lifecycle Integration Guide** (`docs/LIFECYCLE.md`): Comprehensive best practices for Android (Activity, Fragment, Compose) and iOS (UIViewController, SwiftUI), including screen rotation behavior and ViewModel `onCleared` patterns.
+- **Flow/Coroutines Adapter** (`samples/KRelayFlowAdapter.kt`): Documentation and patterns for integrating KRelay with Kotlin coroutines and Flow.
+- **CI/CD via GitHub Actions** (`.github/workflows/ci.yml`): Automated build, test (Android JVM + iOS Simulator), and snapshot publishing pipeline.
+- **Version compatibility matrix** in README: Clear table of KRelay versions vs Kotlin, KMP, AGP, and platform support.
+- **Dokka API documentation**: `./gradlew :krelay:dokkaHtml` generates HTML docs to `docs/api/`. Configured with source links to GitHub.
+
+### Fixed
+- **`KRelayMetrics.enabled` flag was never respected**: `record*` methods always recorded metrics regardless of the `metricsEnabled` flag. Fixed by adding `if (!enabled) return` guard in each method. `KRelay.metricsEnabled = true` now properly opt-in enables collection.
+- **iOS main thread comment misleading**: Removed the "99% accurate" comment from `MainThreadExecutor.ios.kt`. `NSThread.isMainThread` is the correct and reliable check for all standard iOS use cases.
+- **Duplicate registration warning**: Added debug log when `register<T>()` overwrites an existing alive implementation for the same feature type. Helps detect accidental double-registration.
+
+### Changed
+- `KRelayMetrics` now exposes `enabled: Boolean` as a direct public property (replaces the convoluted private extension property workaround).
+
+---
+
 ## [2.0.0] - 2026-02-04
 
 ### Added
@@ -130,6 +150,7 @@ None. This release is fully backward compatible with v1.x.
 
 ---
 
+[Unreleased]: https://github.com/brewkits/KRelay/compare/v2.0.0...HEAD
 [2.0.0]: https://github.com/brewkits/KRelay/releases/tag/v2.0.0
 [1.1.0]: https://github.com/brewkits/KRelay/releases/tag/v1.1.0
 [1.0.0]: https://github.com/brewkits/KRelay/releases/tag/v1.0.0

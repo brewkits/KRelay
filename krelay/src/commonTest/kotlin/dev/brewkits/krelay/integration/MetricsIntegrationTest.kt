@@ -28,6 +28,7 @@ class MetricsIntegrationTest {
     fun setup() {
         KRelay.reset()
         KRelayMetrics.reset()
+        KRelayMetrics.enabled = true
         KRelay.debugMode = false
     }
 
@@ -35,6 +36,7 @@ class MetricsIntegrationTest {
     fun tearDown() {
         KRelay.reset()
         KRelayMetrics.reset()
+        KRelayMetrics.enabled = false
     }
 
     @Test

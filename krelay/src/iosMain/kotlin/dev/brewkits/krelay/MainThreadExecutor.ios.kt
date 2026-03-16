@@ -12,15 +12,15 @@ import platform.Foundation.NSThread
  * preventing UI-related crashes from background threads.
  */
 actual fun runOnMain(block: () -> Unit) {
-    // Note: NSThread.isMainThread is 99% accurate for typical use cases.
-    // In rare GCD edge cases, dispatch_async may be called unnecessarily.
-    // For v1.1.0, this tradeoff is acceptable for performance.
-    // Future: Consider dispatch_queue_get_label check in v1.2.0.
+    // NSThread.isMainThread is the correct and reliable way to check if the current
+    // execution context is on the iOS main thread. It returns true whenever the current
+    // thread is the main thread, regardless of which GCD queue dispatched the work.
+    // This covers all standard use cases: UIKit callbacks, GCD main queue blocks, etc.
     if (NSThread.isMainThread) {
-        // Already on main thread, execute immediately
+        // Already on main thread — execute synchronously to avoid unnecessary async overhead
         block()
     } else {
-        // Dispatch to main queue asynchronously
+        // Off main thread — dispatch asynchronously to the main queue
         dispatch_async(dispatch_get_main_queue()) {
             block()
         }

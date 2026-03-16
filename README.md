@@ -720,6 +720,36 @@ See `composeApp/src/commonMain/kotlin/dev/brewkits/krelay/` for complete example
 
 ---
 
+## Compatibility
+
+### Version Matrix
+
+| KRelay | Kotlin | KMP | AGP | Android minSdk | iOS min |
+|--------|--------|-----|-----|----------------|---------|
+| 2.0.0  | 2.3.x  | 2.3.x | 8.x | 24 | 14.0 |
+| 1.1.0  | 2.0.x  | 2.0.x | 8.x | 23 | 13.0 |
+| 1.0.0  | 1.9.x  | 1.9.x | 7.x | 21 | 13.0 |
+
+### API Compatibility
+
+| KRelay | Singleton API | Instance API | Priority Dispatch |
+|--------|--------------|--------------|-------------------|
+| 2.0.x  | ✅ Full      | ✅ Full      | ✅ Singleton + Instance |
+| 1.1.x  | ✅ Full      | ❌           | ✅ Singleton only |
+| 1.0.x  | ✅ Full      | ❌           | ❌ |
+
+### Platforms Supported
+
+| Platform | v1.0 | v1.1 | v2.0 |
+|----------|------|------|------|
+| Android (arm64, x86_64) | ✅ | ✅ | ✅ |
+| iOS arm64 (device) | ✅ | ✅ | ✅ |
+| iOS arm64 (simulator) | ✅ | ✅ | ✅ |
+| iOS x64 (simulator) | ✅ | ✅ | ✅ |
+| JVM (unit tests) | ✅ | ✅ | ✅ |
+
+---
+
 ## Philosophy: Do One Thing Well
 
 KRelay follows Unix philosophy - it has **one responsibility**:

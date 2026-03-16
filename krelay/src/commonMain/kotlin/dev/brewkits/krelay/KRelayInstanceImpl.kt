@@ -44,6 +44,12 @@ internal class KRelayInstanceImpl(
     internal fun <T : RelayFeature> registerInternal(kClass: KClass<T>, impl: T) {
         val actionsToReplay = lock.withLock {
             if (debugMode) {
+                // Warn if overwriting an existing alive registration
+                val existing = registry[kClass]?.get()
+                if (existing != null && existing !== impl) {
+                    log("⚠️  Overwriting existing registration for ${kClass.simpleName}. " +
+                        "Old impl will be replaced. If this is intentional (e.g. screen rotation), ignore this warning.")
+                }
                 log("📝 Registering ${kClass.simpleName}")
             }
 
@@ -139,6 +145,57 @@ internal class KRelayInstanceImpl(
 
                 // Add new action with timestamp
                 queue.add(QueuedAction(actionWrapper))
+            }
+        }
+    }
+
+    /**
+     * Internal priority dispatch logic for instance API.
+     * Mirrors [KRelay.dispatchWithPriorityInternal] but operates on instance-level state.
+     */
+    @Suppress("UNCHECKED_CAST")
+    @PublishedApi
+    internal fun <T : RelayFeature> dispatchWithPriorityInternal(
+        kClass: KClass<T>,
+        priorityValue: Int,
+        block: (T) -> Unit
+    ) {
+        val impl = lock.withLock {
+            registry[kClass]?.get() as? T
+        }
+
+        if (impl != null) {
+            if (debugMode) {
+                log("✅ Dispatching to ${kClass.simpleName} with priority $priorityValue")
+            }
+            runOnMain {
+                try {
+                    block(impl)
+                } catch (e: Exception) {
+                    log("❌ Error executing action for ${kClass.simpleName}: ${e.message}")
+                }
+            }
+        } else {
+            lock.withLock {
+                if (debugMode) {
+                    log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing with priority $priorityValue...")
+                }
+
+                val actionWrapper: (Any) -> Unit = { instance -> block(instance as T) }
+                val queue = pendingQueue.getOrPut(kClass) { mutableListOf() }
+
+                queue.removeAll { it.isExpired(actionExpiryMs) }
+
+                if (queue.size >= maxQueueSize) {
+                    val lowestPriorityIndex = queue.indices.minByOrNull { queue[it].priority } ?: 0
+                    queue.removeAt(lowestPriorityIndex)
+                    if (debugMode) {
+                        log("⚠️  Queue full for ${kClass.simpleName}. Removed lowest priority action.")
+                    }
+                }
+
+                queue.add(QueuedAction(actionWrapper, priority = priorityValue))
+                queue.sortByDescending { it.priority }
             }
         }
     }

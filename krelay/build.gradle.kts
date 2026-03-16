@@ -1,8 +1,10 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.net.URL
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.dokka)
     id("maven-publish")
     id("signing")
 }
@@ -63,6 +65,24 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+}
+
+// Generate Dokka HTML docs: ./gradlew :krelay:dokkaHtml
+// Output: krelay/build/dokka/html/index.html
+tasks.register<org.jetbrains.dokka.gradle.DokkaTask>("dokkaHtmlCustom") {
+    outputDirectory.set(rootProject.file("docs/api"))
+    moduleName.set("KRelay")
+    dokkaSourceSets.configureEach {
+        includeNonPublic.set(false)
+        skipDeprecated.set(false)
+        reportUndocumented.set(true)
+        skipEmptyPackages.set(true)
+        sourceLink {
+            localDirectory.set(file("src/commonMain/kotlin"))
+            remoteUrl.set(URL("https://github.com/brewkits/krelay/blob/main/krelay/src/commonMain/kotlin"))
+            remoteLineSuffix.set("#L")
+        }
     }
 }
 
