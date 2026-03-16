@@ -34,6 +34,18 @@ internal class KRelayInstanceImpl(
     @PublishedApi
     internal val pendingQueue = mutableMapOf<KClass<*>, MutableList<QueuedAction>>()
 
+    // Persistence adapter (default: in-memory, no actual persistence)
+    @PublishedApi
+    internal var persistenceAdapter: KRelayPersistenceAdapter = InMemoryPersistenceAdapter()
+
+    // Named action factories for persisted dispatch (featureSimpleName::actionKey → factory)
+    @PublishedApi
+    internal val actionFactories = mutableMapOf<String, ActionFactory<*>>()
+
+    // Feature simple name → KClass mapping (populated by registerActionFactory)
+    @PublishedApi
+    internal val featureKeyToKClass = mutableMapOf<String, KClass<*>>()
+
     // Note: register() is provided as extension function in KRelay.kt
 
     /**
@@ -383,7 +395,10 @@ internal class KRelayInstanceImpl(
             registry.values.forEach { it.clear() }
             registry.clear()
             pendingQueue.clear()
+            actionFactories.clear()
+            featureKeyToKClass.clear()
         }
+        persistenceAdapter.clearScope(scopeName)
     }
 
     /**

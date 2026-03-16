@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD via GitHub Actions** (`.github/workflows/ci.yml`): Automated build, test (Android JVM + iOS Simulator), and snapshot publishing pipeline.
 - **Version compatibility matrix** in README: Clear table of KRelay versions vs Kotlin, KMP, AGP, and platform support.
 - **Dokka API documentation**: `./gradlew :krelay:dokkaHtml` generates HTML docs to `docs/api/`. Configured with source links to GitHub.
+- **Persistent Dispatch** (`KRelayPersistence.kt`, `PersistedDispatch.kt`): New `dispatchPersisted<T>()` API that survives process death. Uses named actions + `ActionFactory` pattern (serializable by design — no lambda capture). Supports `restorePersistedActions()` on app restart.
+  - `KRelayPersistenceAdapter` interface for pluggable storage backends
+  - `InMemoryPersistenceAdapter` (default, no-op persistence)
+  - `SharedPreferencesPersistenceAdapter` for Android (`SharedPreferences`-backed)
+  - `NSUserDefaultsPersistenceAdapter` for iOS (`NSUserDefaults`-backed)
+  - `PersistedCommand` with length-prefix serialization format (handles all special characters unambiguously)
+- **Compose Multiplatform integration** (`composeApp/.../KRelayCompose.kt`): `KRelayEffect<T>` composable and `rememberKRelayImpl<T>` helper for lifecycle-safe registration via `DisposableEffect`.
+- **Compose Integration Guide** (`docs/COMPOSE_INTEGRATION.md`): Patterns for `DisposableEffect`, `rememberKRelayImpl`, Voyager, Navigation Compose, and SnackbarHostState.
+- **SwiftUI Integration Guide** (`docs/SWIFTUI_INTEGRATION.md`): `KRelayEffect` ViewModifier, `@Observable` pattern (iOS 17+), NavigationStack, Sheet/Modal, Permissions, and XCTest patterns.
 
 ### Fixed
 - **`KRelayMetrics.enabled` flag was never respected**: `record*` methods always recorded metrics regardless of the `metricsEnabled` flag. Fixed by adding `if (!enabled) return` guard in each method. `KRelay.metricsEnabled = true` now properly opt-in enables collection.
