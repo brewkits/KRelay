@@ -21,11 +21,13 @@ class MetricsTest {
     @BeforeTest
     fun setup() {
         KRelayMetrics.reset()
+        KRelayMetrics.enabled = true  // opt-in for tests
     }
 
     @AfterTest
     fun tearDown() {
         KRelayMetrics.reset()
+        KRelayMetrics.enabled = false
     }
 
     @Test

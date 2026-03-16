@@ -30,10 +30,7 @@ fun App() {
 
     when (selectedDemo) {
         DemoType.BASIC -> BasicDemo(onBackClick = { selectedDemo = null })
-        DemoType.VOYAGER -> {
-            // Fallback to menu with message
-            DemoSelectionMenu(onDemoSelected = { selectedDemo = it })
-        }
+        DemoType.VOYAGER -> VoyagerDemo(onBackClick = { selectedDemo = null })
         DemoType.DECOMPOSE -> DecomposeDemo(onBackClick = { selectedDemo = null })
         DemoType.INTEGRATIONS -> IntegrationsDemo(onBackClick = { selectedDemo = null })
         DemoType.SUPER_APP -> SuperAppDemo(onBackClick = { selectedDemo = null })
@@ -96,20 +93,17 @@ fun DemoSelectionMenu(onDemoSelected: (DemoType) -> Unit) {
                     onClick = { onDemoSelected(DemoType.BASIC) }
                 )
 
-                // Voyager Integration Demo Card (DISABLED)
+                // Voyager Integration Demo Card
                 DemoCard(
-                    title = "🧭 Voyager Integration (TEMPORARILY DISABLED)",
-                    description = "⚠️ Disabled due to Voyager lifecycle bug\n\n" +
-                            "Known Issue:\n" +
-                            "Voyager's AndroidScreenLifecycleOwner has a bug\n" +
-                            "that causes crashes on navigation (DESTROYED\n" +
-                            "state transition issue).\n\n" +
-                            "This is a Voyager library issue, not KRelay.\n" +
-                            "Waiting for Voyager fix or will implement\n" +
-                            "alternative navigation demo.",
-                    onClick = { /* Disabled */ },
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    enabled = false
+                    title = "🧭 Voyager Integration",
+                    description = "Navigation with Voyager 1.1.0:\n" +
+                            "✅ Fixed lifecycle (no crashes!)\n" +
+                            "• Login → Home → Profile flow\n" +
+                            "• KRelay bridges ViewModel → Voyager\n" +
+                            "• Zero Voyager deps in ViewModels!\n" +
+                            "• Clean KRelay registration + cleanup",
+                    onClick = { onDemoSelected(DemoType.VOYAGER) },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
                 )
 
                 // Decompose Integration Demo Card

@@ -5,6 +5,46 @@ All notable changes to KRelay will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+---
+
+## [2.1.0] - 2026-03-16
+
+### Added
+- **`dispatchWithPriority` on `KRelayInstance`**: Priority dispatch is now available on all instances (previously singleton-only). Fixes API inconsistency between singleton and instance APIs.
+- **Lifecycle Integration Guide** (`docs/LIFECYCLE.md`): Comprehensive best practices for Android (Activity, Fragment, Compose) and iOS (UIViewController, SwiftUI), including screen rotation behavior and ViewModel `onCleared` patterns.
+- **Flow/Coroutines Adapter** (`samples/KRelayFlowAdapter.kt`): Documentation and patterns for integrating KRelay with Kotlin coroutines and Flow.
+- **CI/CD via GitHub Actions** (`.github/workflows/ci.yml`): Automated build, test (Android JVM + iOS Simulator), and snapshot publishing pipeline.
+- **Version compatibility matrix** in README: Clear table of KRelay versions vs Kotlin, KMP, AGP, and platform support.
+- **Dokka API documentation**: `./gradlew :krelay:dokkaHtml` generates HTML docs to `docs/api/`. Configured with source links to GitHub.
+- **Persistent Dispatch** (`KRelayPersistence.kt`, `PersistedDispatch.kt`): New `dispatchPersisted<T>()` API that survives process death. Uses named actions + `ActionFactory` pattern (serializable by design — no lambda capture). Supports `restorePersistedActions()` on app restart.
+  - `KRelayPersistenceAdapter` interface for pluggable storage backends
+  - `InMemoryPersistenceAdapter` (default, no-op persistence)
+  - `SharedPreferencesPersistenceAdapter` for Android (`SharedPreferences`-backed)
+  - `NSUserDefaultsPersistenceAdapter` for iOS (`NSUserDefaults`-backed)
+  - `PersistedCommand` with length-prefix serialization format (handles all special characters unambiguously)
+- **Compose Multiplatform integration** (`composeApp/.../KRelayCompose.kt`): `KRelayEffect<T>` composable and `rememberKRelayImpl<T>` helper for lifecycle-safe registration via `DisposableEffect`.
+- **Compose Integration Guide** (`docs/COMPOSE_INTEGRATION.md`): Patterns for `DisposableEffect`, `rememberKRelayImpl`, Voyager, Navigation Compose, and SnackbarHostState.
+- **SwiftUI Integration Guide** (`docs/SWIFTUI_INTEGRATION.md`): `KRelayEffect` ViewModifier, `@Observable` pattern (iOS 17+), NavigationStack, Sheet/Modal, Permissions, and XCTest patterns.
+- **Scope Token API** (`scopeToken`, `cancelScope`, `dispatch(scopeToken, block)`): Selective queue cleanup by caller identity. Tag queued actions from a ViewModel with a token; call `cancelScope(token)` in `onCleared()` to release lambda captures without touching other pending actions for the same feature. `scopedToken()` utility generates a unique, human-readable token per instance.
+- **`resetConfiguration()`** on `KRelayInstance` and `KRelay` singleton: Restores `maxQueueSize`, `actionExpiryMs`, and `debugMode` to defaults without touching the registry or pending queue. Useful for isolated test setup.
+- **`KRelayIosHelperKt.registerFeature(instance:kClass:impl:)`**: Public Kotlin helper for KMP apps where Kotlin dispatches under the interface KClass and iOS needs to register under the same key. See `KRelayIosHelper.kt` for usage.
+
+### Fixed
+- **`KRelayMetrics` not wired to dispatch pipeline**: `recordDispatch()`, `recordQueue()`, and `recordReplay()` were never called from actual dispatch/register code. All three metrics now fire correctly from `dispatchInternal`, `dispatchWithPriorityInternal`, `dispatchPersistedInternal`, and `registerInternal` (replay path). Zero overhead when `KRelayMetrics.enabled = false` (default).
+- **`KRelayMetrics.enabled` flag was never respected**: `record*` methods always recorded metrics regardless of the `metricsEnabled` flag. Fixed by adding `if (!enabled) return` guard in each method. `KRelay.metricsEnabled = true` now properly opt-in enables collection.
+- **iOS Swift KClass bridging broken**: `KotlinKClass.init()` placeholder in `KRelay+Extensions.swift` created an invalid/empty KClass, causing all iOS register/dispatch operations to silently fail. Fixed by using `KRelayIosHelperKt.getKClass(obj:)` during `register(_:)` and caching the result. All iOS operations now use the correct concrete KClass. KMP pattern (Kotlin dispatches interface KClass, iOS registers) documented with `registerFeature` helper.
+- **iOS main thread comment misleading**: Removed the "99% accurate" comment from `MainThreadExecutor.ios.kt`. `NSThread.isMainThread` is the correct and reliable check for all standard iOS use cases.
+- **Duplicate registration warning**: Added debug log when `register<T>()` overwrites an existing alive implementation for the same feature type. Helps detect accidental double-registration.
+- **Test config pollution**: `DiagnosticDemo` tests modified global `KRelay.actionExpiryMs`/`maxQueueSize` without restoring defaults after each test, causing intermittent failures in unrelated test classes. Fixed with proper `@BeforeTest`/`@AfterTest` lifecycle methods.
+
+### Changed
+- `KRelayMetrics` now exposes `enabled: Boolean` as a direct public property (replaces the convoluted private extension property workaround).
+- **Code duplication reduced**: Extracted `enqueueActionUnderLock()` helper in `KRelayInstanceImpl` — shared by `dispatchInternal`, `dispatchWithPriorityInternal`, and `dispatchPersistedInternal`. Eliminates ~50 lines of duplicated queue management logic across the three dispatch paths. `KRelay.dispatchWithPriorityInternal` (singleton) now delegates to the same helper.
+
+---
+
 ## [2.0.0] - 2026-02-04
 
 ### Added
@@ -130,6 +170,8 @@ None. This release is fully backward compatible with v1.x.
 
 ---
 
+[Unreleased]: https://github.com/brewkits/KRelay/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/brewkits/KRelay/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/brewkits/KRelay/releases/tag/v2.0.0
 [1.1.0]: https://github.com/brewkits/KRelay/releases/tag/v1.1.0
 [1.0.0]: https://github.com/brewkits/KRelay/releases/tag/v1.0.0

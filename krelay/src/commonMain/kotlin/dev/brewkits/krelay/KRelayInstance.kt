@@ -102,6 +102,41 @@ interface KRelayInstance {
     fun dump()
 
     /**
+     * Cancels all queued actions that were dispatched with the given [scopeToken].
+     *
+     * Use this to release lambda captures from a specific caller (e.g. ViewModel)
+     * without clearing the entire feature queue. Complements [clearQueue] which
+     * removes ALL pending actions for a feature regardless of who dispatched them.
+     *
+     * ## Recommended pattern
+     * ```kotlin
+     * class MyViewModel : ViewModel() {
+     *     private val relayToken = scopedToken()   // unique per instance
+     *
+     *     fun loadData() {
+     *         relay.dispatch<ToastFeature>(relayToken) { it.show("Done!") }
+     *     }
+     *
+     *     override fun onCleared() {
+     *         relay.cancelScope(relayToken)   // auto-cleanup on destroy
+     *     }
+     * }
+     * ```
+     *
+     * @param token The token passed to [dispatch] calls.
+     */
+    fun cancelScope(token: String)
+
+    /**
+     * Resets configuration to defaults (maxQueueSize=100, actionExpiryMs=300000, debugMode=false).
+     * Does **not** clear the registry or pending queue — use [reset] for a full wipe.
+     *
+     * Useful in tests to restore a clean configuration between test cases without
+     * discarding pending actions or registrations.
+     */
+    fun resetConfiguration()
+
+    /**
      * Resets this instance (clears all registrations and queues).
      */
     fun reset()

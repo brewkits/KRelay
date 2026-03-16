@@ -7,7 +7,6 @@ gradle-app.setting
 !gradle/wrapper/gradle-wrapper.jar
 !gradle/wrapper/gradle-wrapper.properties
 .claude
-.github
 # Android Studio
 .idea/
 *.iml

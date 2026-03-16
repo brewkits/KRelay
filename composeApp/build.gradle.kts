@@ -52,8 +52,8 @@ kotlin {
             implementation(compose.materialIconsExtended)
 
             // Voyager - Navigation library for KMP (has lifecycle bugs, using Decompose instead)
-            implementation("cafe.adriel.voyager:voyager-navigator:1.0.0")
-            implementation("cafe.adriel.voyager:voyager-transitions:1.0.0")
+            implementation("cafe.adriel.voyager:voyager-navigator:1.1.0-beta03")
+            implementation("cafe.adriel.voyager:voyager-transitions:1.1.0-beta03")
 
             // Decompose - Alternative navigation library for KMP
             implementation(libs.decompose)

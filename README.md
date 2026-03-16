@@ -1,207 +1,106 @@
-# KRelay
+# ⚡ KRelay
 
 ![KRelay Cover](rrelay.png)
 
-> **The Glue Code Standard for Kotlin Multiplatform**
->
-> Safe, leak-free bridge between shared code and platform-specific APIs
+> **The missing piece in Kotlin Multiplatform.**
+> Call Toasts, navigate screens, request permissions — anything native — directly from your shared ViewModel. No leaks. No crashes. No boilerplate.
 
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.0-blue.svg?style=flat&logo=kotlin)](http://kotlinlang.org)
-[![Multiplatform](https://img.shields.io/badge/Kotlin-Multiplatform-orange.svg?style=flat)](https://kotlinlang.org/docs/multiplatform.html)
-[![Maven Central](https://img.shields.io/maven-central/v/dev.brewkits/krelay.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/dev.brewkits/krelay)
-[![Zero Dependencies](https://img.shields.io/badge/dependencies-zero-success.svg)](https://github.com/brewkits/krelay/blob/main/krelay/build.gradle.kts)
+[![Maven Central](https://img.shields.io/maven-central/v/dev.brewkits/krelay.svg?label=Maven%20Central&color=brightgreen)](https://central.sonatype.com/artifact/dev.brewkits/krelay)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.x-blue.svg?style=flat&logo=kotlin)](http://kotlinlang.org)
+[![Kotlin Multiplatform](https://img.shields.io/badge/Kotlin-Multiplatform-orange.svg?style=flat)](https://kotlinlang.org/docs/multiplatform.html)
+[![Zero Dependencies](https://img.shields.io/badge/dependencies-zero-success.svg)](krelay/build.gradle.kts)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
 ---
 
-## What is KRelay?
+## 🛑 Sound familiar?
 
-KRelay is a lightweight bridge that connects your shared Kotlin code to platform-specific implementations (Android/iOS) without memory leaks or lifecycle complexity. It offers a simple, type-safe API for one-way, fire-and-forget UI commands.
-
-**v2.0 introduces a powerful instance-based API**, perfect for dependency injection and large-scale "Super Apps," while remaining fully backward-compatible with the original singleton.
-
-**Use Cases**:
-- **Singleton**: Simple, zero-config for small to medium apps.
-- **Instances**: DI-friendly, isolated for large modular apps.
+You've written a clean, shared `ViewModel`. Then you need to show a permission dialog, navigate to the next screen, or open an image picker. And you hit the wall:
 
 ```kotlin
-// ✅ Singleton (Existing projects)
-class LoginViewModel {
-    fun onLoginSuccess() {
-        KRelay.dispatch<ToastFeature> { it.show("Welcome!") }
-    }
-}
-
-// ✅ Instance-based (DI / Super Apps)
-class RideViewModel(private val krelay: KRelayInstance) {
-    fun onBookingConfirmed() {
-        krelay.dispatch<ToastFeature> { it.show("Ride booked!") }
+class ProfileViewModel : ViewModel() {
+    fun updateAvatar() {
+        // ❌ Can't pass Activity — memory leak waiting to happen
+        // ❌ Can't pass UIViewController — platform dependency in shared code
+        // ❌ SharedFlow loses events during screen rotation
+        // ❌ expect/actual is overkill for a one-liner
+        // 😤 So... what do you do?
     }
 }
 ```
+
+This is the **"Last Mile" problem** of KMP. Your business logic is clean and shared — but the moment you need to trigger something native, you're stuck choosing between leaks, boilerplate, or coupling.
 
 ---
 
-## What's New in v2.0.0 - Instance API for Super Apps 🚀
+## ✅ KRelay solves it in 3 steps
 
-KRelay v2.0 introduces a powerful **instance-based API**, designed for scalability, dependency injection, and large-scale applications ("Super Apps"), while preserving **100% backward compatibility** with the simple singleton API.
-
-### 1. Instance-Based API
-- ✅ **Create Isolated Instances**: `KRelay.create("MyModuleScope")`
-- ✅ **Solves Super App Problem**: No more feature name conflicts between independent modules.
-- ✅ **DI-Friendly**: Inject `KRelayInstance` into your ViewModels, UseCases, and repositories.
-- ✅ **Full Isolation**: Each instance has its own registry, queue, and configuration.
+**Step 1 — Define a shared contract (`commonMain`)**
 
 ```kotlin
-// Before (v1.x): Global singleton could cause conflicts
-// ⚠️ Ride module and Food module might conflict on `ToastFeature`
-KRelay.register<ToastFeature>(RideToastImpl())
-KRelay.register<ToastFeature>(FoodToastImpl()) // Overwrites the first one!
-
-// After (v2.0): Fully isolated instances
-val rideKRelay = KRelay.create("Rides")
-val foodKRelay = KRelay.create("Food")
-
-rideKRelay.register<ToastFeature>(RideToastImpl()) // No conflict
-foodKRelay.register<ToastFeature>(FoodToastImpl()) // No conflict
+interface MediaFeature : RelayFeature {
+    fun pickImage()
+}
 ```
 
-### 2. Configurable Instances
-- ✅ **Builder Pattern**: `KRelay.builder("MyScope").maxQueueSize(50).build()`
-- ✅ **Per-Instance Settings**: Customize queue size, action expiry, and debug mode for each module.
+**Step 2 — Dispatch from your ViewModel**
 
-### 3. Full Backward Compatibility
-- ✅ **No Breaking Changes**: All existing code using `KRelay.dispatch` works exactly as before.
-- ✅ **Easy Migration**: Adopt the new instance API incrementally, where it makes sense.
-- ✅ The global `KRelay` object now transparently uses a default instance.
+```kotlin
+class ProfileViewModel : ViewModel() {
+    fun updateAvatar() {
+        KRelay.dispatch<MediaFeature> { it.pickImage() }
+        // ✅ Zero platform deps  ✅ Zero leaks  ✅ Queued if UI isn't ready yet
+    }
+}
+```
 
-**Recommendation**: All new projects, especially those using DI (Koin/Hilt) or with a multi-module architecture, should use the new instance-based API. Existing projects can upgrade without any changes.
+**Step 3 — Register the real implementation on each platform**
+
+```kotlin
+// Android
+KRelay.register<MediaFeature>(PeekabooMediaImpl(activity))
+
+// iOS (Swift)
+KRelay.shared.register(impl: IOSMediaImpl())
+```
+
+**That's it.** KRelay handles lifecycle safety, main-thread dispatch, queue management, and cleanup automatically.
 
 ---
 
-## Memory Management Best Practices
+## Why developers choose KRelay
 
-### Lambda Capture Warning
+### 🛡️ Zero memory leaks — by design
 
-KRelay queues lambdas that may capture variables. Follow these rules to avoid leaks:
+Implementations are held as `WeakReference`. When your Activity or UIViewController is destroyed, KRelay releases it automatically. No `null` checks. No `onDestroy` cleanup for 99% of use cases.
 
-**✅ DO: Capture primitives and data**
-```kotlin
-// Singleton
-val message = viewModel.successMessage
-KRelay.dispatch<ToastFeature> { it.show(message) }
+### 🔄 Events survive screen rotation
 
-// Instance
-val krelay: KRelayInstance = get() // from DI
-krelay.dispatch<ToastFeature> { it.show(message) }
-```
+Commands dispatched while the UI isn't ready are queued and **automatically replayed** when a new implementation registers. Your user rotated the screen mid-API-call? The navigation event still arrives.
 
-**❌ DON'T: Capture ViewModels or Contexts**
-```kotlin
-// BAD: Captures entire viewModel
-KRelay.dispatch<ToastFeature> { it.show(viewModel.data) }
-```
+### 🧵 Always runs on the Main Thread
 
-**🔧 CLEANUP: Use clearQueue() in onCleared()**
-```kotlin
-// Singleton Usage
-class MyViewModel : ViewModel() {
-    override fun onCleared() {
-        super.onCleared()
-        KRelay.clearQueue<ToastFeature>()
-    }
-}
-
-// Instance Usage (with DI)
-class MyViewModel(private val krelay: KRelayInstance) : ViewModel() {
-    override fun onCleared() {
-        super.onCleared()
-        krelay.clearQueue<ToastFeature>()
-    }
-}
-```
-
-### Built-in Protections
-
-Each KRelay instance includes three passive safety mechanisms:
-
-1. **actionExpiryMs** (default: 5 min): Old actions auto-expire.
-2. **maxQueueSize** (default: 100): Oldest actions are dropped when the queue is full.
-3. **WeakReference**: Platform implementations are weakly referenced and auto-released.
-
-For 99% of use cases (Toast, Navigation, Permissions), these are sufficient. These settings can be configured per-instance using the `KRelay.builder()`.
+Dispatch from any background coroutine. KRelay guarantees UI code always executes on the Main Thread — Android Looper and iOS GCD both handled.
 
 ---
 
-## Why KRelay?
+## Works with your stack
 
-### Problem 1: Memory Leaks from Strong References
+KRelay is the glue layer — it integrates with whatever libraries you already use, keeping your ViewModels free of framework dependencies:
 
-**Without KRelay:**
-```kotlin
-// ❌ DIY approach - Memory leak!
-object MyBridge {
-    var activity: Activity? = null  // Forgot to clear → LEAK
-}
-```
+| Category | Works with |
+|----------|-----------|
+| 🧭 Navigation | [Voyager](docs/INTEGRATION_GUIDES.md), [Decompose](docs/INTEGRATION_GUIDES.md), Navigation Compose |
+| 📷 Media | [Peekaboo](docs/INTEGRATION_GUIDES.md) image/camera picker |
+| 🔐 Permissions | [Moko Permissions](docs/INTEGRATION_GUIDES.md) |
+| 🔒 Biometrics | [Moko Biometry](docs/INTEGRATION_GUIDES.md) |
+| ⭐ Reviews | Play Core (Android), StoreKit (iOS) |
+| 💉 DI | Koin, Hilt — inject `KRelayInstance` into ViewModels |
+| 🎨 Compose | Built-in `KRelayEffect<T>` and `rememberKRelayImpl<T>` helpers |
 
-**With KRelay:**
-```kotlin
-// ✅ Automatic WeakReference - Zero leaks
-override fun onCreate(savedInstanceState: Bundle?) {
-    KRelay.register<ToastFeature>(AndroidToast(this))
-    // Auto-cleanup when Activity destroyed
-}
-```
+**Your ViewModels stay pure** — zero direct dependencies on Voyager, Decompose, Moko, or any platform library.
 
-### Problem 2: Missed Commands During Lifecycle Changes
-
-**Without KRelay:**
-```kotlin
-// ❌ Command missed if Activity not ready
-viewModelScope.launch {
-    val data = load()
-    nativeBridge.showToast("Done") // Activity not created yet - event lost!
-}
-```
-
-**With KRelay:**
-```kotlin
-// ✅ Sticky Queue - Commands preserved
-viewModelScope.launch {
-    val data = load()
-    KRelay.dispatch<ToastFeature> { it.show("Done") }
-    // Queued if Activity not ready → Auto-replays when ready
-}
-```
-
-### Problem 3: Poor Testability & DI
-
-**Without KRelay:**
-```kotlin
-// ❌ ViewModel coupled to a specific Navigator
-class LoginViewModel(private val navigator: Navigator) {
-    fun onLoginSuccess() {
-        navigator.push(HomeScreen())
-    }
-}
-// - Hard to test (requires a Navigator mock)
-// - Can't switch navigation libraries easily
-```
-
-**With KRelay (v2.0):**
-```kotlin
-// ✅ ViewModel is pure, depends only on the KRelay contract
-class LoginViewModel(private val krelay: KRelayInstance) {
-    fun onLoginSuccess() {
-        krelay.dispatch<NavigationFeature> { it.goToHome() }
-    }
-}
-
-// - Easy testing: pass in a mock instance
-// - DI-friendly: inject the correct instance
-// - Switch Voyager → Decompose without touching the ViewModel
-```
+→ See [Integration Guides](docs/INTEGRATION_GUIDES.md) for step-by-step examples.
 
 ---
 
@@ -210,336 +109,296 @@ class LoginViewModel(private val krelay: KRelayInstance) {
 ### Installation
 
 ```kotlin
-// In your shared module's build.gradle.kts
+// shared module build.gradle.kts
 commonMain.dependencies {
-    implementation("dev.brewkits:krelay:2.0.0")
+    implementation("dev.brewkits:krelay:2.1.0")
 }
 ```
 
-### Basic Usage
+### Option A — Singleton (simple apps)
 
-**Step 1: Define Feature Contract (commonMain)**
-This is the shared contract between your business logic and platform UI.
+Perfect for single-module apps or getting started fast.
 
 ```kotlin
+// 1. Define the contract (commonMain)
 interface ToastFeature : RelayFeature {
     fun show(message: String)
 }
-```
 
----
-
-#### **Option A: Singleton Usage (Simple)**
-Perfect for single-module apps or maintaining backward compatibility.
-
-**Step 2A: Use from Shared Code**
-
-```kotlin
-// ViewModel uses the global KRelay object
+// 2. Dispatch from shared ViewModel
 class LoginViewModel {
     fun onLoginSuccess() {
-        // The @SuperAppWarning reminds you that this is a global singleton
         KRelay.dispatch<ToastFeature> { it.show("Welcome back!") }
     }
 }
-```
 
-**Step 3A: Implement and Register on Platform**
-
-```kotlin
-// Android (in Activity)
-class AndroidToast(private val context: Context) : ToastFeature { /*...*/ }
-
+// 3A. Register on Android
 override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    KRelay.register<ToastFeature>(AndroidToast(applicationContext))
+    KRelay.register<ToastFeature>(object : ToastFeature {
+        override fun show(message: String) =
+            Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+    })
 }
 
-// iOS (in UIViewController)
-class IOSToast: ToastFeature { /*...*/ }
-
+// 3B. Register on iOS (Swift)
 override func viewDidLoad() {
     super.viewDidLoad()
     KRelay.shared.register(impl: IOSToast(viewController: self))
 }
 ```
 
----
+### Option B — Instance API (DI & multi-module)
 
-#### **Option B: Instance Usage (DI & Super Apps)**
-The recommended approach for new, multi-module, or DI-based projects.
-
-**Step 2B: Create & Inject Instance**
-Create a shared instance for your module or screen. Here, we use Koin as an example.
+The recommended approach for new projects, Koin/Hilt, and modular "Super Apps." Each module gets its own isolated instance — no conflicts between modules.
 
 ```kotlin
-// In a Koin module (e.g., RideModule.kt)
+// Koin module setup
 val rideModule = module {
-    single { KRelay.create("Rides") } // Create a scoped instance
+    single { KRelay.create("Rides") }        // isolated instance
     viewModel { RideViewModel(krelay = get()) }
 }
 
-// ViewModel receives the instance via constructor
+// ViewModel — pure, no framework deps
 class RideViewModel(private val krelay: KRelayInstance) : ViewModel() {
     fun onBookingConfirmed() {
         krelay.dispatch<ToastFeature> { it.show("Ride booked!") }
     }
 }
-```
 
-**Step 3B: Implement and Register on Platform**
-The implementation is the same, but you register it with the specific instance.
-
-```kotlin
-// Android (in Activity)
-val rideKRelay: KRelayInstance by inject() // from Koin
+// Android Activity
+val rideKRelay: KRelayInstance by inject()
 override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     rideKRelay.register<ToastFeature>(AndroidToast(applicationContext))
 }
-
-// iOS (in UIViewController)
-let rideKRelay: KRelayInstance = koin.get() // from Koin
-override func viewDidLoad() {
-    super.viewDidLoad()
-    rideKRelay.register(impl: IOSToast(viewController: self))
-}
 ```
 
-> **⚠️ Important Warnings:**
-> - `@ProcessDeathUnsafe`: The queue is in-memory and lost on process death. This is safe for UI feedback (Toasts, Navigation), but not for critical data (payments).
-> - `@SuperAppWarning`: This reminds you that the global `KRelay` object is a singleton. For modular apps, **use the instance-based API (Option B)** to prevent conflicts.
->
-> See [Managing Warnings](docs/MANAGING_WARNINGS.md) to suppress at the module level.
+> **Compose Multiplatform users:** Use the built-in `KRelayEffect<T>` helper for zero-boilerplate, lifecycle-scoped registration:
+> ```kotlin
+> KRelayEffect<ToastFeature> { AndroidToastImpl(context) }
+> // auto-unregisters when the composable leaves
+> ```
+> See [Compose Integration Guide](docs/COMPOSE_INTEGRATION.md).
+
+> **⚠️ Warnings:** `@ProcessDeathUnsafe` and `@SuperAppWarning` are compile-time reminders.
+> See [Managing Warnings](docs/MANAGING_WARNINGS.md) to suppress them at module level.
 
 ---
 
-## Key Features
+## ❌ When NOT to use KRelay
 
-### 📦 Instance-Based API (New in v2.0)
-- **Super App Ready**: Create isolated `KRelayInstance`s for each module, preventing conflicts.
-- **DI Friendly**: Inject instances into ViewModels and services.
-- **Configurable**: Each instance can have its own queue size, expiry, and debug settings.
+KRelay is for **one-way, fire-and-forget UI commands**. Be honest with yourself:
 
-### 🛡️ Memory Safety
-- **Automatic WeakReference** prevents Activity/ViewController leaks.
-- No manual cleanup needed for 99% of use cases.
+| Use Case | Better Tool |
+|----------|-------------|
+| Need a return value | `expect/actual` or `suspend fun` |
+| State management | `StateFlow` / `MutableStateFlow` |
+| Critical data — payments, uploads | `WorkManager` / background services |
+| Database operations | Room / SQLDelight |
+| Network requests | Repository + Ktor |
+| Heavy background work | `Dispatchers.IO` |
 
-### 🔄 Sticky Queue
-- Commands are never lost during configuration changes (e.g., screen rotation).
-- Auto-replays queued commands when a platform implementation becomes available.
-
-### 🧵 Thread Safety
-- All commands execute on the Main/UI thread automatically.
-- **Reentrant locks** on both platforms (Android & iOS) ensure safe concurrent access.
-- **Stress-tested** with 100k+ concurrent operations.
-
-### 🔌 Library Integration
-- Decouples ViewModels from navigation libraries like Voyager, Decompose, and Compose Navigation.
-- Integrates cleanly with permission handlers (Moko Permissions), image pickers (Peekaboo), and more.
-
-### 🧪 Testability
-- **Singleton**: `KRelay.reset()` provides a clean state for each test.
-- **Instances**: Pass a mock `KRelayInstance` directly to your ViewModel for even easier and more explicit testing.
-- No complex mocking libraries needed.
-
-### ⚡ Performance
-- Zero overhead when dispatching from the main thread.
-- Efficient queue management and minimal memory footprint.
-
-### 🔍 Diagnostic Tools
-- **`dump()`**: A visual printout of the current state (registered features, queue depth).
-- **`getDebugInfo()`**: Programmatic access to all diagnostic data.
-- Real-time monitoring of registered features and queue depth.
+**Golden Rule**: If you need a return value or guaranteed persistence across process death, use a different tool.
 
 ---
 
 ## Core API
 
-The Core API is consistent across the singleton and instances.
+The API is identical on the singleton and on any instance.
 
-### Singleton API (Backward Compatible)
-For quick setup or existing projects. All calls are delegated to a default instance.
+### Singleton
 
 ```kotlin
-// Register a feature on the default instance
 KRelay.register<ToastFeature>(AndroidToast(context))
-
-// Dispatch an action on the default instance
-KRelay.dispatch<ToastFeature> { it.show("Hello from singleton!") }
-```
-
-### Instance API (New in v2.0)
-For dependency injection, multi-module apps, and testability.
-
-```kotlin
-// Create a new, isolated instance
-val rideKRelay = KRelay.create("Rides")
-
-// Or, create a configured instance
-val foodKRelay = KRelay.builder("Food")
-    .maxQueueSize(20)
-    .build()
-
-// Register a feature on a specific instance
-rideKRelay.register<ToastFeature>(RideToastImpl())
-
-// Dispatch an action on that instance
-rideKRelay.dispatch<ToastFeature> { it.show("Your ride is here!") }
-```
-
-### Common Functions
-These functions are available on both the `KRelay` singleton and any `KRelayInstance`.
-
-**Utility Functions:**
-```kotlin
-// On singleton
+KRelay.dispatch<ToastFeature> { it.show("Hello!") }
+KRelay.unregister<ToastFeature>()
 KRelay.isRegistered<ToastFeature>()
 KRelay.getPendingCount<ToastFeature>()
 KRelay.clearQueue<ToastFeature>()
-KRelay.reset() // Resets the default instance
-
-// On instance
-val myRelay: KRelayInstance = get()
-myRelay.isRegistered<ToastFeature>()
-myRelay.getPendingCount<ToastFeature>()
-myRelay.clearQueue<ToastFeature>()
-myRelay.reset() // Resets only this instance
+KRelay.reset()   // clear registry + queue
+KRelay.dump()    // print debug state
 ```
 
-**Diagnostic Functions:**
+### Instance API
+
 ```kotlin
-// On singleton
-KRelay.dump()
-KRelay.getDebugInfo()
+val krelay = KRelay.create("MyScope")           // isolated instance
+// or
+val krelay = KRelay.builder("MyScope")
+    .maxQueueSize(50)
+    .actionExpiryMs(30_000)
+    .build()
 
-// On instance
-val myRelay: KRelayInstance = get()
-myRelay.dump()
-myRelay.getDebugInfo()
+krelay.register<ToastFeature>(impl)
+krelay.dispatch<ToastFeature> { it.show("Hello!") }
+krelay.reset()
+krelay.dump()
+```
+
+### Scope Token API — fine-grained cleanup
+
+```kotlin
+class MyViewModel : ViewModel() {
+    private val token = KRelay.scopedToken()
+
+    fun doWork() {
+        KRelay.dispatch<WorkFeature>(token) { it.run("task") }
+    }
+
+    override fun onCleared() {
+        KRelay.cancelScope(token)  // removes only this ViewModel's queued actions
+    }
+}
 ```
 
 ---
 
-## When to Use KRelay
+## Memory Management
 
-### ✅ Perfect For (Recommended)
+### Lambda capture rules
 
-- **Navigation**: `KRelay.dispatch<NavFeature> { it.goToHome() }`
-- **Toast/Snackbar**: Show user feedback
-- **Permissions**: Request camera/location
-- **Haptics/Sound**: Trigger vibration/audio
-- **Analytics**: Fire-and-forget events
-- **Notifications**: In-app banners
+```kotlin
+// ✅ DO: capture primitives and data
+val message = viewModel.successMessage
+KRelay.dispatch<ToastFeature> { it.show(message) }
 
-### ❌ Do NOT Use For
+// ❌ DON'T: capture ViewModels or Contexts
+KRelay.dispatch<ToastFeature> { it.show(viewModel.data) }  // captures viewModel!
+```
 
-- **Return Values**: Use `expect/actual` instead
-- **State Management**: Use `StateFlow`
-- **Heavy Processing**: Use `Dispatchers.IO`
-- **Database Ops**: Use Room/SQLite directly
-- **Critical Transactions**: Use WorkManager
-- **Network Requests**: Use Repository pattern
+### Built-in protections (passive — always active)
 
-**Golden Rule**: KRelay is for **one-way, fire-and-forget UI commands**. If you need a return value or guaranteed execution after process death, use different tools.
+| Protection | Default | Effect |
+|-----------|---------|--------|
+| `actionExpiryMs` | 5 min | Old queued actions auto-expire |
+| `maxQueueSize` | 100 | Oldest actions dropped when queue fills |
+| `WeakReference` | Always | Platform impls released on GC automatically |
 
----
-
-## Important Limitations
-
-### 1. Queue NOT Persistent (Process Death)
-
-Lambda functions **cannot survive process death** (OS kills app).
-
-**Impact:**
-- ✅ **Safe**: Toast, Navigation, Haptics (UI feedback - acceptable to lose)
-- ❌ **Dangerous**: Payments, Uploads, Critical Analytics (use WorkManager)
-
-**Why?** Lambdas can't be serialized. When OS kills your app, the queue is cleared.
-
-See [@ProcessDeathUnsafe](krelay/src/commonMain/kotlin/dev/brewkits/krelay/ProcessDeathUnsafe.kt) and [Anti-Patterns Guide](docs/ANTI_PATTERNS.md) for details.
-
-### 2. Singleton vs. Instance API
-
-KRelay provides two APIs, and choosing the right one is important.
-
-**Singleton API (`KRelay.dispatch`)**
-- **Pros**: Zero setup, easy to use, great for simple apps.
-- **Cons**: Can cause feature conflicts in large, multi-module "Super Apps" if two modules use the same feature interface.
-- **Use When**: Your app is a single module, or you are certain feature names will not conflict.
-
-**Instance API (`KRelay.create(...)`)**
-- **Pros**: Full isolation between modules, DI-friendly, configurable per-instance. **This is the solution for Super Apps.**
-- **Cons**: Requires a small amount of setup (creating and providing the instance).
-- **Use When**: Building a multi-module app, using dependency injection, or needing different configurations for different parts of your app.
-
-See the `@SuperAppWarning` annotation and the "Quick Start" guide for examples of each.
+These are sufficient for 99% of use cases. Customize per-instance with `KRelay.builder()`.
 
 ---
 
-## Documentation
+## Testing
 
-### 📚 Guides
-- **[Integration Guides](docs/INTEGRATION_GUIDES.md)** - Voyager, Moko, Peekaboo, Decompose
-- **[Anti-Patterns](docs/ANTI_PATTERNS.md)** - What NOT to do (Super App examples)
-- **[Testing Guide](docs/TESTING.md)** - How to test KRelay-based code
-- **[Managing Warnings](docs/MANAGING_WARNINGS.md)** - Suppress `@OptIn` at module level
+### Singleton API
 
-### 🏗️ Technical
-- **[Architecture](docs/ARCHITECTURE.md)** - Deep dive into internals
-- **[API Reference](docs/QUICK_REFERENCE.md)** - Complete API documentation
-- **[ADR: Singleton Trade-offs](docs/adr/0001-singleton-and-serialization-tradeoffs.md)** - Design decisions
+```kotlin
+@BeforeTest
+fun setup() {
+    KRelay.reset()  // clean state for each test
+}
 
-### 🎯 Understanding KRelay
-- **[Positioning](docs/POSITIONING.md)** - Why KRelay exists (The Glue Code Standard)
-- **[Roadmap](ROADMAP.md)** - Future development plans (Desktop, Web, v2.0)
+@Test
+fun `login success dispatches toast and navigation`() {
+    val mockToast = MockToast()
+    KRelay.register<ToastFeature>(mockToast)
+
+    LoginViewModel().onLoginSuccess()
+
+    assertEquals("Welcome back!", mockToast.lastMessage)
+}
+```
+
+### Instance API (recommended — explicit, no global state)
+
+```kotlin
+@BeforeTest
+fun setup() {
+    mockRelay = KRelay.create("TestScope")
+    viewModel = RideViewModel(krelay = mockRelay)
+}
+
+@Test
+fun `booking confirmed dispatches toast`() {
+    val mockToast = MockToast()
+    mockRelay.register<ToastFeature>(mockToast)
+
+    viewModel.onBookingConfirmed()
+
+    assertEquals("Ride booked!", mockToast.lastMessage)
+}
+```
+
+```kotlin
+// Simple mocks — no mocking libraries needed
+class MockToast : ToastFeature {
+    var lastMessage: String? = null
+    override fun show(message: String) { lastMessage = message }
+}
+```
+
+Run tests:
+
+```bash
+./gradlew :krelay:testDebugUnitTest        # JVM (fast)
+./gradlew :krelay:iosSimulatorArm64Test    # iOS Simulator
+./gradlew :krelay:connectedDebugAndroidTest  # Real Android device
+```
+
+**237 unit tests** · **19 instrumented tests** · Tested on JVM, iOS Simulator (arm64), and real Android device (Pixel 6 Pro, Android 16).
 
 ---
 
 ## FAQ
 
-### Q: Isn't this just EventBus? I remember the nightmare on Android...
+### Q: Isn't this just EventBus? I remember the nightmare...
 
-**A:** We understand the PTSD! 😅 But KRelay is fundamentally different:
+**A:** KRelay is fundamentally different:
 
 | Aspect | Old EventBus | KRelay |
 |--------|-------------|--------|
-| **Scope** | Global pub/sub across all components | **Strictly Shared ViewModel → Platform** (one direction) |
-| **Memory Safety** | Manual lifecycle management → leaks everywhere | **Automatic WeakReference** - leak-free by design |
-| **Direction** | Any-to-Any (spaghetti) | **Unidirectional** (ViewModel → View only) |
-| **Discovery** | Events hidden in random places | **Type-safe interfaces** - clear contracts |
-| **Use Case** | General messaging (wrong tool) | **KMP "Last Mile" problem** (right tool) |
+| **Direction** | Any-to-Any (spaghetti) | **Unidirectional**: ViewModel → Platform only |
+| **Memory** | Manual lifecycle → leaks everywhere | **Automatic WeakReference** — leak-free by design |
+| **Contracts** | Stringly-typed events hidden anywhere | **Type-safe interfaces** — explicit, discoverable |
+| **Scope** | Global pub/sub | **Strictly ViewModel → UI layer** |
+| **Purpose** | General messaging (wrong tool) | **KMP "Last Mile" bridge** (right tool) |
 
-**Key difference**: EventBus was used for component-to-component communication (wrong pattern). KRelay is for **ViewModel-to-Platform** bridge only (the missing piece in KMP).
+### Q: Can't I just use `LaunchedEffect` + `SharedFlow`?
 
----
+**A:** Yes, and for 1–2 simple cases that's fine. KRelay shines when you have many platform actions and need:
 
-### Q: How does KRelay v2.0 work with DI (Koin/Hilt)?
+1. **Less boilerplate** — no `MutableSharedFlow` per feature, no `collect {}` per screen
+2. **Rotation safety** — `LaunchedEffect` stops collecting between `onDestroy` and `onCreate`; KRelay's sticky queue covers the gap
 
-**A:** KRelay v2.0 is designed to integrate seamlessly with Dependency Injection frameworks. The new instance-based API allows you to register `KRelayInstance`s as providers in your DI graph and inject them where needed.
-
-**KRelay complements DI** by solving the specific problem of bridging to **lifecycle-aware, Activity/UIViewController-scoped** UI actions (like navigation, dialogs, permissions) without leaking platform contexts into your ViewModels.
-
-**Modern DI Approach (with KRelay v2.0):**
 ```kotlin
-// 1. Provide a KRelay instance in your Koin/Hilt module
+// Without KRelay: boilerplate per feature, per screen
+class LoginViewModel {
+    private val _navEvents = MutableSharedFlow<NavEvent>()
+    val navEvents = _navEvents.asSharedFlow()
+    fun onSuccess() { viewModelScope.launch { _navEvents.emit(NavEvent.GoHome) } }
+}
+
+@Composable
+fun LoginScreen(vm: LoginViewModel) {
+    LaunchedEffect(Unit) { vm.navEvents.collect { when(it) { ... } } }
+}
+
+// With KRelay: register once, dispatch anywhere
+class LoginViewModel {
+    fun onSuccess() { KRelay.dispatch<NavFeature> { it.goToHome() } }
+}
+```
+
+### Q: How does it work with DI (Koin/Hilt)?
+
+**A:** Create a `KRelayInstance` as a scoped singleton in your DI module and inject it into both the ViewModel (dispatch) and the UI layer (register):
+
+```kotlin
+// Koin
 val appModule = module {
-    single { KRelay.create("AppScope") } // Create an instance
+    single { KRelay.create("AppScope") }
     viewModel { LoginViewModel(krelay = get()) }
 }
 
-// 2. Inject the instance into your ViewModel
+// ViewModel
 class LoginViewModel(private val krelay: KRelayInstance) : ViewModel() {
-    fun onLoginSuccess() {
-        // ViewModel is pure and easily testable
-        krelay.dispatch<NavigationFeature> { it.goToHome() }
-    }
+    fun onLoginSuccess() { krelay.dispatch<NavigationFeature> { it.goToHome() } }
 }
 
-// 3. Register the implementation at the UI layer
+// Activity
 class MyActivity : AppCompatActivity() {
-    private val krelay: KRelayInstance by inject() // Inject the same instance
-
+    private val krelay: KRelayInstance by inject()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         krelay.register<NavigationFeature>(AndroidNavigation(this))
@@ -547,208 +406,127 @@ class MyActivity : AppCompatActivity() {
 }
 ```
 
-**When to use what:**
-- **DI (Koin/Hilt)**: For managing the lifecycle of your dependencies, including repositories, use cases, and `KRelayInstance`s.
-- **KRelay**: As the clean, lifecycle-safe bridge for dispatching commands from your DI-managed components to the UI layer.
-
----
-
-### Q: Can't I just use `LaunchedEffect` + `SharedFlow`? Why add another library?
-
-**A:** Absolutely! `LaunchedEffect` is lifecycle-aware and doesn't leak. KRelay solves two **different** problems:
-
-**1. Boilerplate Reduction**
-
-**Without KRelay:**
-```kotlin
-// ViewModel
-class LoginViewModel {
-    private val _navEvents = MutableSharedFlow<NavEvent>()
-    val navEvents = _navEvents.asSharedFlow()
-
-    fun onSuccess() {
-        viewModelScope.launch {
-            _navEvents.emit(NavEvent.GoHome)
-        }
-    }
-}
-
-// Every screen needs this collector
-@Composable
-fun LoginScreen(viewModel: LoginViewModel) {
-    val navigator = LocalNavigator.current
-    LaunchedEffect(Unit) {
-        viewModel.navEvents.collect { event ->
-            when (event) {
-                is NavEvent.GoHome -> navigator.push(HomeScreen())
-                // ... handle all events
-            }
-        }
-    }
-}
-```
-
-**With KRelay:**
-```kotlin
-// ViewModel
-class LoginViewModel {
-    fun onSuccess() {
-        KRelay.dispatch<NavFeature> { it.goToHome() }
-    }
-}
-
-// One-time registration in MainActivity
-override fun onCreate(savedInstanceState: Bundle?) {
-    KRelay.register<NavFeature>(VoyagerNav(navigator))
-}
-```
-
-**2. Missed Events During Rotation**
-
-If you dispatch an event **during rotation** (between old Activity destroy → new Activity create), `LaunchedEffect` isn't running yet → **event lost**.
-
-KRelay's **Sticky Queue** catches these events and replays them when the new Activity is ready.
-
-**Trade-off**: If you only have 1-2 features and prefer explicit Flow collectors, stick with `LaunchedEffect`. If you have many platform actions (Toast, Nav, Permissions, Haptics), KRelay reduces boilerplate significantly.
-
----
-
-## Testing
-
-KRelay is designed for testability. The v2.0 instance API makes testing even cleaner.
-
-### Testing with the Singleton API
-If you use the `KRelay` singleton, you can use `KRelay.reset()` to ensure a clean state between tests.
-
-```kotlin
-class LoginViewModelTest {
-    @BeforeTest
-    fun setup() {
-        KRelay.reset() // Clears the default instance's registry and queue
-    }
-
-    @Test
-    fun `when login success, dispatches toast and nav commands`() {
-        // Arrange: Register mock implementations on the global object
-        val mockToast = MockToast()
-        val mockNav = MockNav()
-        KRelay.register<ToastFeature>(mockToast)
-        KRelay.register<NavigationFeature>(mockNav)
-        
-        val viewModel = LoginViewModel() // Assumes ViewModel uses KRelay singleton
-
-        // Act
-        viewModel.onLoginSuccess()
-
-        // Assert
-        assertEquals("Welcome back!", mockToast.lastMessage)
-        assertTrue(mockNav.navigatedToHome)
-    }
-}
-```
-
-### Testing with the Instance API (Recommended)
-This is the modern, recommended approach. It avoids global state and makes dependencies explicit.
-
-```kotlin
-class RideViewModelTest {
-    private lateinit var mockRelay: KRelayInstance
-    private lateinit var viewModel: RideViewModel
-
-    @BeforeTest
-    fun setup() {
-        // Create a fresh instance for each test
-        mockRelay = KRelay.create("TestScope")
-        viewModel = RideViewModel(krelay = mockRelay)
-    }
-
-    @Test
-    fun `when booking confirmed, dispatches confirmation toast`() {
-        // Arrange: Register a mock feature on the instance
-        val mockToast = MockToast()
-        mockRelay.register<ToastFeature>(mockToast)
-
-        // Act
-        viewModel.onBookingConfirmed()
-
-        // Assert
-        assertEquals("Ride booked!", mockToast.lastMessage)
-    }
-}
-```
-
-**Shared Mock Implementations:**
-```kotlin
-// A simple mock used in the tests above
-class MockToast : ToastFeature {
-    var lastMessage: String? = null
-    override fun show(message: String) {
-        lastMessage = message
-    }
-}
-
-class MockNav : NavigationFeature {
-    var navigatedToHome: Boolean = false
-    override fun goToHome() {
-        navigatedToHome = true
-    }
-}
-```
-
-Run tests:
-```bash
-./gradlew :krelay:testDebugUnitTest        # Android
-./gradlew :krelay:iosSimulatorArm64Test    # iOS Simulator
-```
-
 ---
 
 ## Demo App
 
-The project includes a demo app showcasing real integrations:
+The repo includes a runnable demo covering all major features:
 
-**Android:**
 ```bash
 ./gradlew :composeApp:installDebug
 ```
 
-**Features:**
-- Basic Demo: Core KRelay features
-- Voyager Integration: Real navigation library integration
-
-See `composeApp/src/commonMain/kotlin/dev/brewkits/krelay/` for complete examples.
+| Demo | What it shows |
+|------|--------------|
+| Basic | Core dispatch, queue, WeakRef behavior |
+| Voyager Integration | Navigation across screens without Voyager in ViewModel |
+| Decompose Integration | Component-based navigation, same pattern |
+| Library Integrations | Moko Permissions, Biometry, Peekaboo, In-app Review |
+| Super App Demo | Multiple isolated `KRelayInstance`s, no conflicts |
 
 ---
 
-## Philosophy: Do One Thing Well
+## Compatibility
 
-KRelay follows Unix philosophy - it has **one responsibility**:
+### Version Matrix
 
-> Guarantee safe, leak-free dispatch of UI commands from shared code to platform.
+| KRelay | Kotlin | KMP | AGP | Android minSdk | iOS min |
+|--------|--------|-----|-----|----------------|---------|
+| 2.1.0  | 2.3.x  | 2.3.x | 8.x | 24 | 14.0 |
+| 2.0.0  | 2.3.x  | 2.3.x | 8.x | 24 | 14.0 |
+| 1.1.0  | 2.0.x  | 2.0.x | 8.x | 23 | 13.0 |
+| 1.0.0  | 1.9.x  | 1.9.x | 7.x | 21 | 13.0 |
 
-**What KRelay Is:**
-- ✅ A messenger for one-way UI commands
-- ✅ Fire-and-forget pattern
-- ✅ Lifecycle-aware bridge
+### API Compatibility
 
-**What KRelay Is NOT:**
-- ❌ RPC framework (no request-response)
-- ❌ State management (use StateFlow)
-- ❌ Background worker (use WorkManager)
-- ❌ DI framework (use Koin/Hilt)
+| KRelay | Singleton | Instance API | Priority Dispatch | Compose Helpers | Persistent Dispatch |
+|--------|-----------|--------------|-------------------|-----------------|---------------------|
+| 2.1.x  | ✅        | ✅           | ✅ Both           | ✅ `KRelayEffect`, `rememberKRelayImpl` | ✅ |
+| 2.0.x  | ✅        | ✅           | ✅ Both           | ❌              | ✅                  |
+| 1.1.x  | ✅        | ❌           | ✅ Singleton      | ❌              | ❌                  |
+| 1.0.x  | ✅        | ❌           | ❌               | ❌              | ❌                  |
 
-By staying focused, KRelay remains simple, reliable, and maintainable.
+### Platforms
+
+| Platform | v1.0 | v1.1 | v2.0 | v2.1 |
+|----------|:----:|:----:|:----:|:----:|
+| Android (arm64, x86_64) | ✅ | ✅ | ✅ | ✅ |
+| iOS arm64 (device) | ✅ | ✅ | ✅ | ✅ |
+| iOS arm64 (simulator) | ✅ | ✅ | ✅ | ✅ |
+| iOS x64 (simulator) | ✅ | ✅ | ✅ | ✅ |
+| JVM (unit tests) | ✅ | ✅ | ✅ | ✅ |
+
+---
+
+## What's New
+
+<details>
+<summary><strong>v2.1.0 — Compose Integration & Hardening</strong></summary>
+
+- Built-in `KRelayEffect<T>` and `rememberKRelayImpl<T>` Compose helpers
+- `KRelay.instance` public property for cross-module access
+- Persistent dispatch with `SharedPreferencesPersistenceAdapter` (Android) and `NSUserDefaultsPersistenceAdapter` (iOS)
+- Scope Token API: `scopedToken()` / `cancelScope(token)`
+- 237 unit tests + 19 instrumented tests — all passing
+- Voyager demo fixed (Voyager 1.1.0-beta03, no more lifecycle crashes)
+- Android 15+ 16KB page alignment compatibility
+- `KRelayMetrics` wiring fixed; iOS KClass bridging fixed
+
+See [CHANGELOG.md](CHANGELOG.md) and [RELEASE_NOTES_2.1.0.md](RELEASE_NOTES_2.1.0.md) for full details.
+
+</details>
+
+<details>
+<summary><strong>v2.0.0 — Instance API for Super Apps</strong></summary>
+
+- `KRelay.create("ScopeName")` — create isolated instances per module
+- `KRelay.builder(...)` — configure queue size, expiry, debug mode per instance
+- DI-friendly: inject `KRelayInstance` into ViewModels
+- 100% backward compatible with v1.x
+
+See [CHANGELOG.md](CHANGELOG.md) for full details.
+
+</details>
+
+---
+
+## Documentation
+
+### Guides
+- **[Integration Guides](docs/INTEGRATION_GUIDES.md)** — Voyager, Decompose, Moko, Peekaboo
+- **[Compose Integration](docs/COMPOSE_INTEGRATION.md)** — `KRelayEffect`, `rememberKRelayImpl`, Navigation patterns
+- **[SwiftUI Integration](docs/SWIFTUI_INTEGRATION.md)** — iOS-specific patterns, XCTest
+- **[Lifecycle Guide](docs/LIFECYCLE.md)** — Android (Activity/Fragment/Compose) and iOS (UIViewController/SwiftUI)
+- **[DI Integration](docs/DI_INTEGRATION.md)** — Koin and Hilt setup
+- **[Testing Guide](docs/TESTING.md)** — Best practices for testing KRelay-based code
+- **[Anti-Patterns](docs/ANTI_PATTERNS.md)** — What NOT to do
+- **[Managing Warnings](docs/MANAGING_WARNINGS.md)** — Suppress `@OptIn` at module level
+
+### Technical
+- **[Architecture](docs/ARCHITECTURE.md)** — Internals deep dive
+- **[API Reference](docs/QUICK_REFERENCE.md)** — Full API cheat sheet
+- **[Migration to v2.0](docs/MIGRATION_V2.md)** — From v1.x
+
+---
+
+## Philosophy
+
+KRelay does **one thing**:
+
+> Guarantee safe, leak-free dispatch of UI commands from shared code to platform — on any thread, across any lifecycle.
+
+It is not a state manager, not an RPC framework, not a DI framework. By staying focused, it stays simple, reliable, and easy to delete if you ever outgrow it.
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions welcome! Please submit a Pull Request.
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+3. Commit your changes
+4. Push to the branch
 5. Open a Pull Request
 
 ---
@@ -763,28 +541,12 @@ you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
 ```
 
 ---
 
-## ⭐ Star Us on GitHub!
-
-If KRelay saves you time, please give us a star!
-
-It helps other developers discover this project.
-
----
-
-[⬆️ Back to Top](#krelay)
-
----
+[⬆️ Back to Top](#-krelay)
 
 Made with ❤️ by **Nguyễn Tuấn Việt** at [Brewkits](https://brewkits.dev)
 
-**Support:** datacenter111@gmail.com • **Community:** [GitHub Issues](https://github.com/brewkits/krelay/issues)
+**Support:** datacenter111@gmail.com · **Issues:** [GitHub Issues](https://github.com/brewkits/krelay/issues)

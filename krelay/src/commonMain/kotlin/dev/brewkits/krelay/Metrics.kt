@@ -18,30 +18,45 @@ object KRelayMetrics {
     private val expiryCounts = mutableMapOf<KClass<*>, Long>()
 
     /**
-     * Records a dispatch event.
+     * Whether metrics collection is enabled.
+     * Default: false (opt-in to avoid overhead in production).
+     *
+     * Enable via [KRelay.metricsEnabled] or directly:
+     * ```kotlin
+     * KRelayMetrics.enabled = true
+     * ```
+     */
+    var enabled: Boolean = false
+
+    /**
+     * Records a dispatch event. No-op if [enabled] is false.
      */
     internal fun recordDispatch(kClass: KClass<*>) {
+        if (!enabled) return
         dispatchCounts[kClass] = (dispatchCounts[kClass] ?: 0) + 1
     }
 
     /**
-     * Records a queue event.
+     * Records a queue event. No-op if [enabled] is false.
      */
     internal fun recordQueue(kClass: KClass<*>) {
+        if (!enabled) return
         queueCounts[kClass] = (queueCounts[kClass] ?: 0) + 1
     }
 
     /**
-     * Records a replay event.
+     * Records a replay event. No-op if [enabled] is false.
      */
     internal fun recordReplay(kClass: KClass<*>, count: Int) {
+        if (!enabled) return
         replayCounts[kClass] = (replayCounts[kClass] ?: 0) + count
     }
 
     /**
-     * Records an expiry event.
+     * Records an expiry event. No-op if [enabled] is false.
      */
     internal fun recordExpiry(kClass: KClass<*>, count: Int) {
+        if (!enabled) return
         expiryCounts[kClass] = (expiryCounts[kClass] ?: 0) + count
     }
 
@@ -117,16 +132,22 @@ object KRelayMetrics {
 }
 
 /**
- * Extension to enable/disable metrics tracking on KRelay.
+ * Extension to enable/disable metrics tracking on KRelay singleton.
+ *
+ * ```kotlin
+ * KRelay.metricsEnabled = true
+ * // ... use the app ...
+ * KRelayMetrics.printReport()
+ * ```
  */
 var KRelay.metricsEnabled: Boolean
-    get() = KRelayMetrics.isEnabled
+    get() = KRelayMetrics.enabled
     set(value) {
-        KRelayMetrics.isEnabled = value
+        KRelayMetrics.enabled = value
     }
 
 /**
- * Extension to get metrics for a specific feature.
+ * Extension to get metrics for a specific feature from the singleton.
  */
 inline fun <reified T : RelayFeature> KRelay.getMetrics(): Map<String, Long> {
     return mapOf(
@@ -136,14 +157,3 @@ inline fun <reified T : RelayFeature> KRelay.getMetrics(): Map<String, Long> {
         "expired" to KRelayMetrics.getExpiryCount(T::class)
     )
 }
-
-/**
- * Internal flag to enable/disable metrics.
- */
-private var KRelayMetrics.isEnabled: Boolean
-    get() = _metricsEnabled
-    set(value) {
-        _metricsEnabled = value
-    }
-
-private var _metricsEnabled: Boolean = false

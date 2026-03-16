@@ -34,6 +34,18 @@ internal class KRelayInstanceImpl(
     @PublishedApi
     internal val pendingQueue = mutableMapOf<KClass<*>, MutableList<QueuedAction>>()
 
+    // Persistence adapter (default: in-memory, no actual persistence)
+    @PublishedApi
+    internal var persistenceAdapter: KRelayPersistenceAdapter = InMemoryPersistenceAdapter()
+
+    // Named action factories for persisted dispatch (featureSimpleName::actionKey → factory)
+    @PublishedApi
+    internal val actionFactories = mutableMapOf<String, ActionFactory<*>>()
+
+    // Feature simple name → KClass mapping (populated by registerActionFactory)
+    @PublishedApi
+    internal val featureKeyToKClass = mutableMapOf<String, KClass<*>>()
+
     // Note: register() is provided as extension function in KRelay.kt
 
     /**
@@ -44,6 +56,12 @@ internal class KRelayInstanceImpl(
     internal fun <T : RelayFeature> registerInternal(kClass: KClass<T>, impl: T) {
         val actionsToReplay = lock.withLock {
             if (debugMode) {
+                // Warn if overwriting an existing alive registration
+                val existing = registry[kClass]?.get()
+                if (existing != null && existing !== impl) {
+                    log("⚠️  Overwriting existing registration for ${kClass.simpleName}. " +
+                        "Old impl will be replaced. If this is intentional (e.g. screen rotation), ignore this warning.")
+                }
                 log("📝 Registering ${kClass.simpleName}")
             }
 
@@ -63,8 +81,11 @@ internal class KRelayInstanceImpl(
 
                 queue.clear()
 
-                if (debugMode && validActions.isNotEmpty()) {
-                    log("🔄 Replaying ${validActions.size} pending action(s) for ${kClass.simpleName}")
+                if (validActions.isNotEmpty()) {
+                    if (debugMode) {
+                        log("🔄 Replaying ${validActions.size} pending action(s) for ${kClass.simpleName}")
+                    }
+                    KRelayMetrics.recordReplay(kClass, validActions.size)
                 }
 
                 validActions.toList() // Copy to avoid concurrent modification
@@ -94,17 +115,19 @@ internal class KRelayInstanceImpl(
      */
     @Suppress("UNCHECKED_CAST")
     @PublishedApi
-    internal fun <T : RelayFeature> dispatchInternal(kClass: KClass<T>, block: (T) -> Unit) {
+    internal fun <T : RelayFeature> dispatchInternal(
+        kClass: KClass<T>,
+        block: (T) -> Unit,
+        scopeToken: String? = null
+    ) {
         val impl = lock.withLock {
             registry[kClass]?.get() as? T
         }
 
         if (impl != null) {
             // Case A: Implementation is alive -> Execute on main thread
-            if (debugMode) {
-                log("✅ Dispatching to ${kClass.simpleName}")
-            }
-
+            if (debugMode) log("✅ Dispatching to ${kClass.simpleName}")
+            KRelayMetrics.recordDispatch(kClass)
             runOnMain {
                 try {
                     block(impl)
@@ -115,31 +138,87 @@ internal class KRelayInstanceImpl(
         } else {
             // Case B: Implementation is dead/missing -> Queue for later
             lock.withLock {
-                if (debugMode) {
-                    log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing action...")
-                }
-
-                val actionWrapper: (Any) -> Unit = { instance ->
-                    block(instance as T)
-                }
-
-                val queue = pendingQueue.getOrPut(kClass) { mutableListOf() }
-
-                // Remove expired actions before adding new one
-                queue.removeAll { it.isExpired(actionExpiryMs) }
-
-                // Check queue size limit
-                if (queue.size >= maxQueueSize) {
-                    // Remove oldest action (FIFO)
-                    queue.removeAt(0)
-                    if (debugMode) {
-                        log("⚠️  Queue full for ${kClass.simpleName}. Removed oldest action.")
-                    }
-                }
-
-                // Add new action with timestamp
-                queue.add(QueuedAction(actionWrapper))
+                if (debugMode) log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing action...")
+                enqueueActionUnderLock(
+                    kClass,
+                    QueuedAction(action = { instance -> block(instance as T) }, scopeToken = scopeToken)
+                )
             }
+            KRelayMetrics.recordQueue(kClass)
+        }
+    }
+
+    /**
+     * Internal priority dispatch logic for instance API.
+     * Mirrors [KRelay.dispatchWithPriorityInternal] but operates on instance-level state.
+     */
+    @Suppress("UNCHECKED_CAST")
+    @PublishedApi
+    internal fun <T : RelayFeature> dispatchWithPriorityInternal(
+        kClass: KClass<T>,
+        priorityValue: Int,
+        block: (T) -> Unit
+    ) {
+        val impl = lock.withLock {
+            registry[kClass]?.get() as? T
+        }
+
+        if (impl != null) {
+            if (debugMode) log("✅ Dispatching to ${kClass.simpleName} with priority $priorityValue")
+            KRelayMetrics.recordDispatch(kClass)
+            runOnMain {
+                try {
+                    block(impl)
+                } catch (e: Exception) {
+                    log("❌ Error executing action for ${kClass.simpleName}: ${e.message}")
+                }
+            }
+        } else {
+            lock.withLock {
+                if (debugMode) log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing with priority $priorityValue...")
+                enqueueActionUnderLock(
+                    kClass,
+                    QueuedAction(action = { instance -> block(instance as T) }, priority = priorityValue),
+                    evictByPriority = true
+                )
+            }
+            KRelayMetrics.recordQueue(kClass)
+        }
+    }
+
+    /**
+     * Adds [action] to the pending queue for [kClass]. Must be called under [lock].
+     *
+     * - Removes expired entries before checking capacity.
+     * - On overflow: drops the lowest-priority entry when [evictByPriority] is true,
+     *   or the oldest entry (FIFO) when false.
+     * - Sorts the queue by priority descending when [evictByPriority] is true.
+     */
+    @PublishedApi
+    internal fun enqueueActionUnderLock(
+        kClass: KClass<*>,
+        action: QueuedAction,
+        evictByPriority: Boolean = false
+    ) {
+        val queue = pendingQueue.getOrPut(kClass) { mutableListOf() }
+        queue.removeAll { it.isExpired(actionExpiryMs) }
+
+        if (queue.size >= maxQueueSize) {
+            if (evictByPriority) {
+                val lowestIdx = queue.indices.minByOrNull { queue[it].priority } ?: 0
+                queue.removeAt(lowestIdx)
+            } else {
+                queue.removeAt(0)
+            }
+            if (debugMode) {
+                log("⚠️  Queue full for ${kClass.simpleName}. Removed ${if (evictByPriority) "lowest-priority" else "oldest"} action.")
+            }
+        }
+
+        queue.add(action)
+
+        if (evictByPriority) {
+            queue.sortByDescending { it.priority }
         }
     }
 
@@ -316,6 +395,32 @@ internal class KRelayInstanceImpl(
     }
 
     /**
+     * Cancels all queued actions tagged with the given scope token.
+     */
+    override fun cancelScope(token: String) {
+        lock.withLock {
+            var cancelled = 0
+            pendingQueue.values.forEach { queue ->
+                val before = queue.size
+                queue.removeAll { it.scopeToken == token }
+                cancelled += before - queue.size
+            }
+            if (debugMode) {
+                log("🗑️  Cancelled $cancelled queued action(s) for scope token '$token'")
+            }
+        }
+    }
+
+    /**
+     * Resets configuration to defaults without affecting registry or queues.
+     */
+    override fun resetConfiguration() {
+        maxQueueSize = 100
+        actionExpiryMs = 5 * 60 * 1000
+        debugMode = false
+    }
+
+    /**
      * Clears all registrations and pending queues for this instance.
      */
     override fun reset() {
@@ -326,7 +431,10 @@ internal class KRelayInstanceImpl(
             registry.values.forEach { it.clear() }
             registry.clear()
             pendingQueue.clear()
+            actionFactories.clear()
+            featureKeyToKClass.clear()
         }
+        persistenceAdapter.clearScope(scopeName)
     }
 
     /**

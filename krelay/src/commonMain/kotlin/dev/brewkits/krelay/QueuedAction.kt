@@ -6,13 +6,15 @@ package dev.brewkits.krelay
  * This allows KRelay to:
  * - Track when actions were queued
  * - Expire old actions automatically
- * - Prioritize actions (future enhancement)
+ * - Prioritize actions during replay (higher value = replayed first)
+ * - Tag actions with a scope token for selective cancellation
  */
 @PublishedApi
 internal data class QueuedAction(
     val action: (Any) -> Unit,
     val timestampMs: Long = currentTimeMillis(),
-    val priority: Int = 0  // Future: 0 = normal, higher = more important
+    val priority: Int = 0,
+    val scopeToken: String? = null
 ) {
     /**
      * Checks if this action has expired based on the given expiry duration.

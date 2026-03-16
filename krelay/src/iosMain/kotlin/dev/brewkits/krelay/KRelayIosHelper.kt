@@ -8,20 +8,40 @@ import kotlin.reflect.KClass
  * Swift cannot directly access Kotlin's `reified` type parameters or `::class`,
  * so we provide explicit functions.
  *
- * Usage in Swift:
- * ```swift
- * // Get KClass from instance
- * let kClass = KRelayIosHelperKt.getKClass(for: myToastImpl)
- * KRelay.shared.registerInternal(impl: myToastImpl, kClass: kClass)
+ * ## Pattern A — iOS-only apps (iOS dispatches AND registers)
  *
- * // Get KClass from type
- * let kClass = KRelayIosHelperKt.getKClassForType(MyToastFeature.self)
- * KRelay.shared.unregisterInternal(kClass: kClass)
+ * Use the concrete KClass of the implementation consistently:
+ * ```swift
+ * // Register with the concrete KClass (via getKClass helper)
+ * // The Swift extension handles this automatically — just call:
+ * KRelay.shared.register(myToastImpl)
+ *
+ * // Dispatch using the SAME concrete type
+ * KRelay.shared.dispatch(MyToastImpl.self) { $0.show("Hello") }
+ * ```
+ *
+ * ## Pattern B — KMP apps (Kotlin dispatches, iOS registers)
+ *
+ * Kotlin dispatches using the interface KClass (`ToastFeature::class`).
+ * iOS must register under the same interface KClass. Export a Kotlin helper:
+ *
+ * ```kotlin
+ * // In your shared Kotlin code:
+ * fun toastFeatureClass() = ToastFeature::class
+ * ```
+ *
+ * Then from Swift:
+ * ```swift
+ * KRelayIosHelperKt.registerFeature(
+ *     instance: KRelay.shared.defaultInstance,
+ *     kClass:   YourSharedKt.toastFeatureClass(),
+ *     impl:     self
+ * )
  * ```
  */
 
 /**
- * Gets the KClass for a given object instance.
+ * Gets the KClass for a given object instance (returns the concrete class).
  */
 fun getKClass(obj: Any): KClass<*> = obj::class
 
@@ -33,3 +53,35 @@ fun getKClass(obj: Any): KClass<*> = obj::class
  */
 @Suppress("UNCHECKED_CAST")
 fun <T : Any> getKClassForType(instance: T): KClass<*> = instance::class
+
+/**
+ * Registers [impl] under the provided [kClass] key on the given [instance].
+ *
+ * This is the correct helper for **KMP apps** where Kotlin dispatches using the
+ * *interface* KClass (`ToastFeature::class`) and iOS needs to register under
+ * the same key.
+ *
+ * Export a Kotlin helper that returns the interface KClass:
+ * ```kotlin
+ * fun toastFeatureClass() = ToastFeature::class
+ * ```
+ *
+ * Then call from Swift:
+ * ```swift
+ * KRelayIosHelperKt.registerFeature(
+ *     instance: KRelay.shared.defaultInstance,
+ *     kClass:   YourSharedKt.toastFeatureClass(),
+ *     impl:     self
+ * )
+ * ```
+ */
+@Suppress("UNCHECKED_CAST")
+fun registerFeature(
+    instance: KRelayInstance,
+    kClass: KClass<out RelayFeature>,
+    impl: RelayFeature
+) {
+    if (instance is KRelayInstanceImpl) {
+        instance.registerInternal(kClass as KClass<RelayFeature>, impl)
+    }
+}

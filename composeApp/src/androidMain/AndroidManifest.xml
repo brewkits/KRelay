@@ -11,6 +11,16 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:enableOnBackInvokedCallback="true">
+
+        <!--
+            Opt-in to 16KB page-size compatibility mode on Android 15+.
+            Required because peekaboo-image-picker 0.5.2 bundles libimage_processing_util_jni.so
+            which is only 4KB-aligned. Remove once Peekaboo ships a 16KB-aligned build.
+            See: https://developer.android.com/guide/practices/page-sizes
+        -->
+        <property
+            android:name="android.allow_non_16k_pages"
+            android:value="true" />
         <activity
             android:exported="true"
             android:name=".MainActivity">

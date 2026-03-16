@@ -632,6 +632,6 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed rationale.
 
 ---
 
-**Last Updated**: 2026-01-23
-**Current Version**: v1.0.1
-**Next Release**: v1.1.0 (Desktop Support) - Planned Q2 2026
+**Last Updated**: 2026-03-16
+**Current Version**: v2.1.0
+**Next Release**: v2.2.0 (Desktop/Web Support) - Planned Q3 2026

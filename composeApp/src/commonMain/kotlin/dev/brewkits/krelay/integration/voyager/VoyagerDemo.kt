@@ -1,14 +1,14 @@
 package dev.brewkits.krelay.integration.voyager
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.SlideTransition
 import dev.brewkits.krelay.KRelay
+import dev.brewkits.krelay.unregister
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * Voyager Integration Demo
@@ -36,15 +36,17 @@ fun VoyagerDemo(onBackClick: () -> Unit) {
         ) {
             // Create Voyager Navigator starting at LoginScreen
             Navigator(LoginScreen(onBackToMenu = onBackClick)) { navigator ->
-                // Register KRelay navigation bridge
-                // This is the magic connection point!
-                LaunchedEffect(navigator) {
+
+                val scope = rememberCoroutineScope()
+
+                // Register KRelay navigation bridge, unregister on dispose
+                DisposableEffect(navigator) {
                     println("\n╔════════════════════════════════════════════════════════════════╗")
                     println("║  🚀 VOYAGER DEMO - KRelay Integration Setup                  ║")
                     println("╚════════════════════════════════════════════════════════════════╝")
                     println("\n🔧 [VoyagerDemo] Initializing KRelay bridge...")
                     println("   Step 1: Creating VoyagerNavigationImpl (the bridge)")
-                    val navImpl = VoyagerNavigationImpl(navigator, onBackClick)
+                    val navImpl = VoyagerNavigationImpl(navigator, scope, onBackClick)
                     println("   Step 2: Registering VoyagerNavFeature with KRelay")
                     KRelay.register<VoyagerNavFeature>(navImpl)
                     println("   ✓ Registration complete!")
@@ -57,6 +59,11 @@ fun VoyagerDemo(onBackClick: () -> Unit) {
                     println("✨ Easy to swap Voyager for Decompose or any other nav library!")
                     println("✨ Testable without mocking Navigator!")
                     println("\n═══════════════════════════════════════════════════════════════════\n")
+
+                    onDispose {
+                        println("🧹 [VoyagerDemo] Unregistering VoyagerNavFeature from KRelay")
+                        KRelay.unregister<VoyagerNavFeature>()
+                    }
                 }
 
                 // Voyager handles screen transitions

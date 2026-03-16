@@ -68,6 +68,13 @@ object KRelay {
         debugMode = false
     )
 
+    /**
+     * The default [KRelayInstance] backing this singleton.
+     * Use this when an API requires a [KRelayInstance] reference and you want
+     * to target the global singleton (e.g., Compose integrations, DI bindings).
+     */
+    val instance: KRelayInstance get() = defaultInstance
+
     // ============================================================
     // SINGLETON API (v1.0 - Backward Compatible)
     // ============================================================
@@ -191,6 +198,27 @@ object KRelay {
     }
 
     /**
+     * Dispatches an action tagged with a [scopeToken] on the default singleton instance.
+     * See [KRelayInstance.dispatch] for full documentation.
+     */
+    @ProcessDeathUnsafe
+    @MemoryLeakWarning
+    inline fun <reified T : RelayFeature> dispatch(
+        scopeToken: String,
+        noinline block: (T) -> Unit
+    ) {
+        defaultInstance.dispatchInternal(T::class, block, scopeToken)
+    }
+
+    /**
+     * Cancels all queued actions tagged with [token] on the default singleton instance.
+     * See [KRelayInstance.cancelScope] for full documentation.
+     */
+    fun cancelScope(token: String) {
+        defaultInstance.cancelScope(token)
+    }
+
+    /**
      * Unregisters an implementation.
      *
      * Usually not needed as WeakRef will be cleared automatically when the object is GC'd.
@@ -301,6 +329,12 @@ object KRelay {
      * ```
      */
     fun dump() = defaultInstance.dump()
+
+    /**
+     * Resets configuration to defaults (maxQueueSize=100, actionExpiryMs=300000, debugMode=false).
+     * Does **not** clear the registry or pending queue — use [reset] for a full wipe.
+     */
+    fun resetConfiguration() = defaultInstance.resetConfiguration()
 
     /**
      * Clears all registrations and pending queues.
@@ -471,6 +505,45 @@ inline fun <reified T : RelayFeature> KRelayInstance.dispatch(noinline block: (T
 }
 
 /**
+ * Dispatches an action tagged with a [scopeToken].
+ *
+ * If the implementation is alive the action executes immediately (token is ignored).
+ * If the action is queued, it is tagged so that [KRelayInstance.cancelScope] can
+ * selectively remove it without touching other queued actions for the same feature.
+ *
+ * ## Typical usage in ViewModel
+ * ```kotlin
+ * class OrderViewModel(private val relay: KRelayInstance) : ViewModel() {
+ *     private val token = scopedToken()
+ *
+ *     fun placeOrder() {
+ *         relay.dispatch<ToastFeature>(token) { it.show("Order placed!") }
+ *         relay.dispatch<NavFeature>(token) { it.navigateTo("confirmation") }
+ *     }
+ *
+ *     override fun onCleared() {
+ *         relay.cancelScope(token)   // releases lambda captures automatically
+ *     }
+ * }
+ * ```
+ *
+ * @param scopeToken An identifier for the caller. Use [scopedToken] to generate one.
+ * @param block      The action to execute on the platform implementation.
+ */
+@ProcessDeathUnsafe
+@MemoryLeakWarning
+inline fun <reified T : RelayFeature> KRelayInstance.dispatch(
+    scopeToken: String,
+    noinline block: (T) -> Unit
+) {
+    if (this is KRelayInstanceImpl) {
+        this.dispatchInternal(T::class, block, scopeToken)
+    } else {
+        throw UnsupportedOperationException("Custom KRelayInstance implementations must override dispatch()")
+    }
+}
+
+/**
  * Type-safe unregister for KRelayInstance.
  */
 inline fun <reified T : RelayFeature> KRelayInstance.unregister() {
@@ -513,3 +586,30 @@ inline fun <reified T : RelayFeature> KRelayInstance.clearQueue() {
         throw UnsupportedOperationException("Custom KRelayInstance implementations must override clearQueue()")
     }
 }
+
+// ============================================================
+// SCOPE TOKEN UTILITY
+// ============================================================
+
+/**
+ * Generates a unique token to tag dispatch calls from a specific scope.
+ *
+ * Use this in ViewModels (or any long-lived caller) to identify their dispatches,
+ * then call [KRelayInstance.cancelScope] with the same token on destruction.
+ *
+ * ```kotlin
+ * class HomeViewModel(private val relay: KRelayInstance) : ViewModel() {
+ *     private val token = scopedToken()
+ *
+ *     fun onEvent() {
+ *         relay.dispatch<ToastFeature>(token) { it.show("Done") }
+ *     }
+ *
+ *     override fun onCleared() = relay.cancelScope(token)
+ * }
+ * ```
+ *
+ * Each call returns a distinct token. The token is human-readable for easier
+ * debugging (contains the timestamp it was created).
+ */
+fun scopedToken(): String = "krelay-${currentTimeMillis()}-${kotlin.random.Random.nextInt(Int.MAX_VALUE)}"

@@ -56,25 +56,47 @@ inline fun <reified T : RelayFeature> KRelay.dispatchWithPriority(
 }
 
 /**
- * Internal implementation of priority dispatch.
+ * Dispatches an action with a specific priority on a [KRelayInstance].
+ *
+ * Higher priority actions will be replayed first when the implementation becomes available.
+ * This method is consistent with [KRelay.dispatchWithPriority] for the singleton API.
+ *
+ * @param priority The priority level for this action
+ * @param block The action to execute
  */
+@ProcessDeathUnsafe
+@MemoryLeakWarning
+inline fun <reified T : RelayFeature> KRelayInstance.dispatchWithPriority(
+    priority: ActionPriority,
+    noinline block: (T) -> Unit
+) {
+    if (this is KRelayInstanceImpl) {
+        this.dispatchWithPriorityInternal(T::class, priority.value, block)
+    } else {
+        throw UnsupportedOperationException(
+            "Custom KRelayInstance implementations must override dispatchWithPriority()"
+        )
+    }
+}
+
+/**
+ * Internal implementation of priority dispatch (singleton).
+ * Delegates queue management to [defaultInstance.enqueueActionUnderLock].
+ */
+@Suppress("UNCHECKED_CAST")
 @PublishedApi
 internal fun <T : RelayFeature> KRelay.dispatchWithPriorityInternal(
     kClass: kotlin.reflect.KClass<T>,
     priorityValue: Int,
     block: (T) -> Unit
 ) {
-    @Suppress("UNCHECKED_CAST")
     val impl = lock.withLock {
         registry[kClass]?.get() as? T
     }
 
     if (impl != null) {
-        // Case A: Implementation is alive -> Execute on main thread
-        if (debugMode) {
-            log("✅ Dispatching to ${kClass.simpleName} with priority $priorityValue")
-        }
-
+        if (debugMode) log("✅ Dispatching to ${kClass.simpleName} with priority $priorityValue")
+        KRelayMetrics.recordDispatch(kClass)
         runOnMain {
             try {
                 block(impl)
@@ -83,36 +105,14 @@ internal fun <T : RelayFeature> KRelay.dispatchWithPriorityInternal(
             }
         }
     } else {
-        // Case B: Implementation is dead/missing -> Queue with priority
         lock.withLock {
-            if (debugMode) {
-                log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing action with priority $priorityValue...")
-            }
-
-            val actionWrapper: (Any) -> Unit = { instance ->
-                block(instance as T)
-            }
-
-            val queue = pendingQueue.getOrPut(kClass) { mutableListOf() }
-
-            // Remove expired actions before adding new one
-            queue.removeAll { it.isExpired(actionExpiryMs) }
-
-            // Check queue size limit
-            if (queue.size >= maxQueueSize) {
-                // Remove lowest priority action
-                val lowestPriorityIndex = queue.indices.minByOrNull { queue[it].priority } ?: 0
-                queue.removeAt(lowestPriorityIndex)
-                if (debugMode) {
-                    log("⚠️  Queue full for ${kClass.simpleName}. Removed lowest priority action.")
-                }
-            }
-
-            // Add new action with timestamp and priority
-            queue.add(QueuedAction(actionWrapper, priority = priorityValue))
-
-            // Sort queue by priority (highest first)
-            queue.sortByDescending { it.priority }
+            if (debugMode) log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing action with priority $priorityValue...")
+            defaultInstance.enqueueActionUnderLock(
+                kClass,
+                QueuedAction(action = { instance -> block(instance as T) }, priority = priorityValue),
+                evictByPriority = true
+            )
         }
+        KRelayMetrics.recordQueue(kClass)
     }
 }
