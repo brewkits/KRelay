@@ -2,6 +2,8 @@ package dev.brewkits.krelay.demo
 
 import dev.brewkits.krelay.KRelay
 import dev.brewkits.krelay.RelayFeature
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 
 /**
@@ -33,6 +35,22 @@ class DiagnosticDemo {
         override fun navigate(route: String) {
             println("🧭 Navigate to: $route")
         }
+    }
+
+    @BeforeTest
+    fun setup() {
+        KRelay.reset()
+        KRelay.maxQueueSize = 100
+        KRelay.actionExpiryMs = 5 * 60 * 1000
+        KRelay.debugMode = false
+    }
+
+    @AfterTest
+    fun tearDown() {
+        KRelay.reset()
+        KRelay.maxQueueSize = 100
+        KRelay.actionExpiryMs = 5 * 60 * 1000
+        KRelay.debugMode = false
     }
 
     @Test

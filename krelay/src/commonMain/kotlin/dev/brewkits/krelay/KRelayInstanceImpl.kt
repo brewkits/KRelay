@@ -112,7 +112,11 @@ internal class KRelayInstanceImpl(
      */
     @Suppress("UNCHECKED_CAST")
     @PublishedApi
-    internal fun <T : RelayFeature> dispatchInternal(kClass: KClass<T>, block: (T) -> Unit) {
+    internal fun <T : RelayFeature> dispatchInternal(
+        kClass: KClass<T>,
+        block: (T) -> Unit,
+        scopeToken: String? = null
+    ) {
         val impl = lock.withLock {
             registry[kClass]?.get() as? T
         }
@@ -155,8 +159,8 @@ internal class KRelayInstanceImpl(
                     }
                 }
 
-                // Add new action with timestamp
-                queue.add(QueuedAction(actionWrapper))
+                // Add new action with timestamp and optional scope token
+                queue.add(QueuedAction(actionWrapper, scopeToken = scopeToken))
             }
         }
     }
@@ -382,6 +386,23 @@ internal class KRelayInstanceImpl(
         println("  - Action Expiry: ${info.actionExpiryMs}ms (${info.actionExpiryMs / 60000.0} min)")
         println("  - Debug Mode: ${info.debugMode}")
         println("================================================")
+    }
+
+    /**
+     * Cancels all queued actions tagged with the given scope token.
+     */
+    override fun cancelScope(token: String) {
+        lock.withLock {
+            var cancelled = 0
+            pendingQueue.values.forEach { queue ->
+                val before = queue.size
+                queue.removeAll { it.scopeToken == token }
+                cancelled += before - queue.size
+            }
+            if (debugMode) {
+                log("🗑️  Cancelled $cancelled queued action(s) for scope token '$token'")
+            }
+        }
     }
 
     /**

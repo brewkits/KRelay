@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Compose Multiplatform integration** (`composeApp/.../KRelayCompose.kt`): `KRelayEffect<T>` composable and `rememberKRelayImpl<T>` helper for lifecycle-safe registration via `DisposableEffect`.
 - **Compose Integration Guide** (`docs/COMPOSE_INTEGRATION.md`): Patterns for `DisposableEffect`, `rememberKRelayImpl`, Voyager, Navigation Compose, and SnackbarHostState.
 - **SwiftUI Integration Guide** (`docs/SWIFTUI_INTEGRATION.md`): `KRelayEffect` ViewModifier, `@Observable` pattern (iOS 17+), NavigationStack, Sheet/Modal, Permissions, and XCTest patterns.
+- **Scope Token API** (`scopeToken`, `cancelScope`, `dispatch(scopeToken, block)`): Selective queue cleanup by caller identity. Tag queued actions from a ViewModel with a token; call `cancelScope(token)` in `onCleared()` to release lambda captures without touching other pending actions for the same feature. `scopedToken()` utility generates a unique, human-readable token per instance.
 
 ### Fixed
 - **`KRelayMetrics.enabled` flag was never respected**: `record*` methods always recorded metrics regardless of the `metricsEnabled` flag. Fixed by adding `if (!enabled) return` guard in each method. `KRelay.metricsEnabled = true` now properly opt-in enables collection.
