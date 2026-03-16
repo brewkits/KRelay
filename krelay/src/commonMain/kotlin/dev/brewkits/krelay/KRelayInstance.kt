@@ -128,6 +128,15 @@ interface KRelayInstance {
     fun cancelScope(token: String)
 
     /**
+     * Resets configuration to defaults (maxQueueSize=100, actionExpiryMs=300000, debugMode=false).
+     * Does **not** clear the registry or pending queue — use [reset] for a full wipe.
+     *
+     * Useful in tests to restore a clean configuration between test cases without
+     * discarding pending actions or registrations.
+     */
+    fun resetConfiguration()
+
+    /**
      * Resets this instance (clears all registrations and queues).
      */
     fun reset()

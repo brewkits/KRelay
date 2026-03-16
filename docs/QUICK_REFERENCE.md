@@ -1,4 +1,4 @@
-# KRelay v1.1.0 - Quick Reference Card
+# KRelay v2.1.0 - Quick Reference Card
 
 ## 🚀 Installation
 

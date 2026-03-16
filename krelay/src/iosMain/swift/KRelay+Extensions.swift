@@ -1,35 +1,84 @@
 import Foundation
 import Krelay
 
+// MARK: - KClass Cache
+//
+// iOS cannot obtain the KClass of a Kotlin *interface* directly from Swift.
+// When `register(_:)` is called with a concrete implementation, we obtain
+// its KClass via `KRelayIosHelperKt.getKClass(obj:)` and cache it under the
+// concrete type name so that `dispatch`, `unregister`, and `clearQueue` can
+// reuse the same KClass key.
+//
+// ⚠️ IMPORTANT — iOS-only vs KMP pattern:
+//
+// **iOS-only apps** (iOS both dispatches and registers):
+//   Use the CONCRETE implementation type as the type parameter in both
+//   `register` and `dispatch`. The cache bridges the gap automatically.
+//   ```swift
+//   KRelay.shared.register(myToastVC)                       // caches MyToastVC → KClass
+//   KRelay.shared.dispatch(MyToastVC.self) { $0.show("Hi") }// reuses cached KClass
+//   ```
+//
+// **KMP apps** (Kotlin dispatches with interface KClass, iOS registers):
+//   Kotlin dispatches under `ToastFeature::class`; the iOS cache stores
+//   `MyToastVC::class` — these will NOT match, so replay won't trigger.
+//   Use `KRelayIosHelperKt.registerFeature(instance:kClass:impl:)` instead,
+//   passing the interface KClass from a Kotlin helper function:
+//   ```kotlin
+//   // Kotlin (shared module) — export this helper:
+//   fun toastFeatureClass() = ToastFeature::class
+//   ```
+//   ```swift
+//   // Swift:
+//   KRelayIosHelperKt.registerFeature(
+//       instance: KRelay.shared.defaultInstance,
+//       kClass:   YourSharedKt.toastFeatureClass(),
+//       impl:     self
+//   )
+//   ```
+
+private var _kClassCache: [String: KotlinKClass] = [:]
+private let _kClassCacheLock = NSLock()
+
+private func cachedKClass(for typeName: String) -> KotlinKClass? {
+    _kClassCacheLock.lock()
+    defer { _kClassCacheLock.unlock() }
+    return _kClassCache[typeName]
+}
+
+private func cacheKClass(_ kClass: KotlinKClass, for typeName: String) {
+    _kClassCacheLock.lock()
+    defer { _kClassCacheLock.unlock() }
+    _kClassCache[typeName] = kClass
+}
+
 // MARK: - Swift-Friendly KRelay Extensions
 
 /**
  * Swift-friendly extensions for KRelay.
  *
- * Since Kotlin's reified inline functions don't work well from Swift,
- * these extensions provide idiomatic Swift APIs.
- *
  * Usage in Swift:
  * ```swift
- * // Register
+ * // Register (uses concrete type — caches KClass automatically)
  * KRelay.shared.register(myToastImpl)
  *
- * // Dispatch
- * KRelay.shared.dispatch(ToastFeature.self) { feature in
+ * // Dispatch (must use the same CONCRETE type as register)
+ * KRelay.shared.dispatch(MyToastImpl.self) { feature in
  *     feature.show("Hello from Swift!")
  * }
  *
  * // Check registration
- * if KRelay.shared.isRegistered(ToastFeature.self) {
- *     print("Toast is registered")
- * }
+ * if KRelay.shared.isRegistered(MyToastImpl.self) { ... }
  *
  * // Unregister
- * KRelay.shared.unregister(ToastFeature.self)
+ * KRelay.shared.unregister(MyToastImpl.self)
  *
  * // Clear queue
- * KRelay.shared.clearQueue(ToastFeature.self)
+ * KRelay.shared.clearQueue(MyToastImpl.self)
  * ```
+ *
+ * For KMP apps where Kotlin dispatches using the *interface* KClass, see
+ * the `KRelayIosHelperKt.registerFeature(instance:kClass:impl:)` helper.
  */
 extension KRelay {
 
@@ -38,85 +87,103 @@ extension KRelay {
     /**
      * Registers a platform implementation.
      *
+     * Obtains the concrete KClass via `KRelayIosHelperKt.getKClass(obj:)` and
+     * caches it under the concrete type name for use in `dispatch`, `unregister`, etc.
+     *
      * - Parameter impl: The implementation conforming to RelayFeature
      *
      * Example:
      * ```swift
      * class MyToast: ToastFeature {
-     *     func show(_ message: String) {
-     *         print(message)
-     *     }
+     *     func show(_ message: String) { print(message) }
      * }
      *
      * let toast = MyToast()
-     * KRelay.shared.register(toast)
+     * KRelay.shared.register(toast)                          // caches MyToast → KClass
+     * KRelay.shared.dispatch(MyToast.self) { $0.show("Hi") } // reuses cached KClass
      * ```
+     *
+     * For KMP apps where Kotlin dispatches under the *interface* KClass, use
+     * `KRelayIosHelperKt.registerFeature(instance:kClass:impl:)` instead.
      */
     func register<T: RelayFeature>(_ impl: T) {
-        let kClass = KotlinKClass<T>(for: type(of: impl))
+        let kClass = KRelayIosHelperKt.getKClass(obj: impl) as! KotlinKClass
+        let typeName = String(describing: type(of: impl))
+        cacheKClass(kClass, for: typeName)
         self.registerInternal(impl: impl as AnyObject, kClass: kClass)
     }
 
     /**
-     * Unregisters an implementation.
+     * Unregisters an implementation by its concrete type name.
      *
-     * - Parameter type: The feature type to unregister
+     * - Parameter type: The **concrete** type used in `register(_:)`
      *
      * Example:
      * ```swift
-     * KRelay.shared.unregister(ToastFeature.self)
+     * KRelay.shared.unregister(MyToast.self)
      * ```
      */
     func unregister<T: RelayFeature>(_ type: T.Type) {
-        let kClass = KotlinKClass<T>(for: type)
+        let typeName = String(describing: type)
+        guard let kClass = cachedKClass(for: typeName) else {
+            print("⚠️ [KRelay] unregister(\(typeName)): no cached KClass — was register() called first?")
+            return
+        }
         self.unregisterInternal(kClass: kClass)
     }
 
     // MARK: - Dispatch
 
     /**
-     * Dispatches an action to a feature implementation.
+     * Dispatches an action to a registered feature implementation.
      *
-     * If the implementation is registered, executes immediately on main thread.
+     * If the implementation is registered, executes immediately on the main thread.
      * If not registered, queues the action for later replay.
      *
+     * **IMPORTANT**: `type` must be the **concrete** class used in `register(_:)`.
+     * Using a protocol/interface type will produce a cache-miss warning and the
+     * action will be dropped.
+     *
      * - Parameters:
-     *   - type: The feature type
+     *   - type:   The concrete feature type (e.g. `MyToastImpl.self`)
      *   - action: The action to execute
      *
      * Example:
      * ```swift
-     * KRelay.shared.dispatch(ToastFeature.self) { feature in
+     * KRelay.shared.dispatch(MyToast.self) { feature in
      *     feature.show("Success!")
      * }
      * ```
      */
     func dispatch<T: RelayFeature>(_ type: T.Type, action: @escaping (T) -> Void) {
-        let kClass = KotlinKClass<T>(for: type)
+        let typeName = String(describing: type)
+        guard let kClass = cachedKClass(for: typeName) else {
+            print("⚠️ [KRelay] dispatch(\(typeName)): no cached KClass. Call register() before dispatch(), or use KRelayIosHelperKt.registerFeature() for KMP apps.")
+            return
+        }
         self.dispatchInternal(kClass: kClass) { instance in
-            if let feature = instance as? T {
-                action(feature)
-            }
+            if let feature = instance as? T { action(feature) }
         }
     }
 
     /**
      * Dispatches an action with priority.
      *
-     * Higher priority actions are replayed first when the feature is registered.
+     * Higher priority actions are replayed first when the feature becomes registered.
+     * See `dispatch(_:action:)` for notes on the `type` parameter.
      *
      * - Parameters:
-     *   - type: The feature type
+     *   - type:     The concrete feature type
      *   - priority: The action priority
-     *   - action: The action to execute
+     *   - action:   The action to execute
      *
      * Example:
      * ```swift
      * KRelay.shared.dispatch(
-     *     NotificationFeature.self,
+     *     MyNotification.self,
      *     priority: .critical
      * ) { feature in
-     *     feature.showNotification("Payment failed!", priority: .critical)
+     *     feature.showAlert("Payment failed!")
      * }
      * ```
      */
@@ -125,11 +192,13 @@ extension KRelay {
         priority: ActionPriority,
         action: @escaping (T) -> Void
     ) {
-        let kClass = KotlinKClass<T>(for: type)
+        let typeName = String(describing: type)
+        guard let kClass = cachedKClass(for: typeName) else {
+            print("⚠️ [KRelay] dispatch(\(typeName), priority:): no cached KClass — call register() first.")
+            return
+        }
         self.dispatchWithPriorityInternal(kClass: kClass, priority: priority) { instance in
-            if let feature = instance as? T {
-                action(feature)
-            }
+            if let feature = instance as? T { action(feature) }
         }
     }
 
@@ -138,35 +207,35 @@ extension KRelay {
     /**
      * Checks if an implementation is currently registered.
      *
-     * - Parameter type: The feature type to check
+     * - Parameter type: The concrete feature type
      * - Returns: True if registered, false otherwise
      *
      * Example:
      * ```swift
-     * if KRelay.shared.isRegistered(ToastFeature.self) {
-     *     print("Toast is available")
-     * }
+     * if KRelay.shared.isRegistered(MyToast.self) { print("Toast is available") }
      * ```
      */
     func isRegistered<T: RelayFeature>(_ type: T.Type) -> Bool {
-        let kClass = KotlinKClass<T>(for: type)
+        let typeName = String(describing: type)
+        guard let kClass = cachedKClass(for: typeName) else { return false }
         return self.isRegisteredInternal(kClass: kClass)
     }
 
     /**
      * Gets the number of pending actions for a feature.
      *
-     * - Parameter type: The feature type
+     * - Parameter type: The concrete feature type
      * - Returns: Number of queued actions
      *
      * Example:
      * ```swift
-     * let pending = KRelay.shared.getPendingCount(ToastFeature.self)
+     * let pending = KRelay.shared.getPendingCount(MyToast.self)
      * print("Pending toasts: \(pending)")
      * ```
      */
     func getPendingCount<T: RelayFeature>(_ type: T.Type) -> Int {
-        let kClass = KotlinKClass<T>(for: type)
+        let typeName = String(describing: type)
+        guard let kClass = cachedKClass(for: typeName) else { return 0 }
         return Int(self.getPendingCountInternal(kClass: kClass))
     }
 
@@ -176,21 +245,20 @@ extension KRelay {
      * Clears the pending queue for a feature type.
      *
      * **IMPORTANT**: Use this to prevent lambda capture leaks.
-     * Call in deinit or when the ViewController is being dismissed.
+     * Call in `deinit` or when the ViewController is being dismissed.
      *
-     * - Parameter type: The feature type
+     * - Parameter type: The concrete feature type
      *
      * Example:
      * ```swift
      * class MyViewModel {
-     *     deinit {
-     *         KRelay.shared.clearQueue(ToastFeature.self)
-     *     }
+     *     deinit { KRelay.shared.clearQueue(MyToast.self) }
      * }
      * ```
      */
     func clearQueue<T: RelayFeature>(_ type: T.Type) {
-        let kClass = KotlinKClass<T>(for: type)
+        let typeName = String(describing: type)
+        guard let kClass = cachedKClass(for: typeName) else { return }
         self.clearQueueInternal(kClass: kClass)
     }
 
@@ -199,95 +267,41 @@ extension KRelay {
     /**
      * Gets metrics for a specific feature type.
      *
-     * - Parameter type: The feature type
+     * - Parameter type: The concrete feature type
      * - Returns: Dictionary of metric names to values
      *
      * Example:
      * ```swift
-     * let metrics = KRelay.shared.getMetrics(ToastFeature.self)
+     * let metrics = KRelay.shared.getMetrics(MyToast.self)
      * print("Dispatches: \(metrics["dispatches"] ?? 0)")
      * ```
      */
     func getMetrics<T: RelayFeature>(_ type: T.Type) -> [String: Int64] {
-        let kClass = KotlinKClass<T>(for: type)
+        let typeName = String(describing: type)
+        guard let kClass = cachedKClass(for: typeName) else { return [:] }
         return self.getMetricsInternal(kClass: kClass) as! [String: Int64]
-    }
-}
-
-// MARK: - Helper: KotlinKClass Creation
-
-/**
- * Helper to create KClass from Swift type.
- * This bridges Swift's Type system to Kotlin's KClass.
- *
- * **IMPORTANT**: This requires proper Kotlin/Native interop setup.
- * Use KRelayIosHelper.kt functions for KClass creation:
- * - getKClass(obj:) - Get KClass from instance
- * - getKClassForType(_:) - Get KClass from type
- *
- * If interop is not properly configured, this will log a warning and return nil,
- * allowing graceful degradation instead of crashing the app.
- */
-fileprivate extension KotlinKClass {
-    convenience init<T>(for type: T.Type) {
-        // WARNING: This is a placeholder implementation.
-        // The actual implementation should use KRelayIosHelperKt functions.
-        //
-        // Proper implementation:
-        // - Create a dummy instance of the protocol
-        // - Call KRelayIosHelperKt.getKClass(for: instance)
-        //
-        // For now, we log a warning instead of crashing with fatalError.
-        // This allows the app to continue running even if KRelay interop
-        // is not fully configured.
-
-        print("""
-        ⚠️ [KRelay] Swift Extension Warning:
-        KClass creation for type '\(T.self)' is not fully implemented.
-
-        To fix this:
-        1. Use Kotlin API directly: KRelay.shared.register<YourFeature>(impl)
-        2. Or implement proper Swift-Kotlin bridging using KRelayIosHelper.kt
-
-        The app will continue, but KRelay operations may not work correctly.
-        """)
-
-        // Attempt to create a minimal KClass as fallback
-        // This prevents immediate crash but operations may fail gracefully
-        self.init()
-    }
-
-    convenience init<T>(for instance: T) {
-        // For instances, we can use KRelayIosHelper if available
-        // Otherwise fall back to type-based init
-        self.init(for: type(of: instance))
     }
 }
 
 // MARK: - Convenience: Typed Wrappers
 
 /**
- * Type-safe wrapper for common features.
+ * Type-safe wrappers for common features.
  * Add your own feature-specific extensions here.
+ *
+ * Note: dispatch convenience helpers are intentionally omitted because
+ * dispatch requires the *concrete* type (not the protocol) for cache lookup.
+ * Call `dispatch(MyConcreteImpl.self) { ... }` directly.
  */
 extension KRelay {
 
-    // Example: Toast convenience
+    // Example: Registration convenience (concrete type inferred from impl)
     func registerToast(_ impl: ToastFeature) {
         register(impl)
     }
 
-    func showToast(_ message: String) {
-        dispatch(ToastFeature.self) { $0.show(message) }
-    }
-
-    // Example: Navigation convenience
     func registerNavigation(_ impl: NavigationFeature) {
         register(impl)
-    }
-
-    func navigate(to route: String) {
-        dispatch(NavigationFeature.self) { $0.navigate(route) }
     }
 }
 
@@ -347,16 +361,16 @@ extension UIViewController {
  * ```
  */
 class KRelayLifecycle<T: RelayFeature> {
-    private let featureType: T.Type
+    private let concreteType: T.Type
 
     init(feature: T) {
-        self.featureType = type(of: feature)
+        self.concreteType = type(of: feature)
         KRelay.shared.register(feature)
     }
 
     deinit {
-        KRelay.shared.unregister(featureType)
-        KRelay.shared.clearQueue(featureType)
+        KRelay.shared.unregister(concreteType)
+        KRelay.shared.clearQueue(concreteType)
     }
 }
 
@@ -379,7 +393,7 @@ import SwiftUI
  *                 KRelay.shared.register(self)
  *             }
  *             .onDisappear {
- *                 KRelay.shared.unregister(ToastFeature.self)
+ *                 KRelay.shared.unregister(type(of: self))
  *             }
  *     }
  *

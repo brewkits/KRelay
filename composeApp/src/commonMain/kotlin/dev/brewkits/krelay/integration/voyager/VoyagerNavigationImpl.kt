@@ -2,10 +2,7 @@ package dev.brewkits.krelay.integration.voyager
 
 import cafe.adriel.voyager.navigator.Navigator
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.yield
 
 /**
  * Real Voyager implementation of VoyagerNavFeature.
@@ -18,39 +15,28 @@ import kotlinx.coroutines.yield
  * - KRelay finds this implementation
  * - This implementation calls Voyager Navigator
  *
- * Note: Navigation calls use replace() instead of replaceAll() to avoid lifecycle conflicts
+ * The coroutine scope is provided by the composable (rememberCoroutineScope)
+ * so it is automatically cancelled when the composition leaves.
  */
 class VoyagerNavigationImpl(
     private val navigator: Navigator,
+    private val scope: CoroutineScope,
     private val onBackToMenu: () -> Unit
 ) : VoyagerNavFeature {
-
-    private val navigationScope = CoroutineScope(Dispatchers.Main)
 
     override fun navigateToHome() {
         println("\n🌉 [VoyagerNavigationImpl] KRelay called navigateToHome()")
         println("   ┌─ This is the BRIDGE between KRelay → Voyager")
         println("   ├─ Current stack size: ${navigator.size}")
-        println("   ├─ Action: POP ALL + PUSH (workaround for lifecycle issue)")
-        println("   ├─ Creating: HomeScreen(onBackToMenu)")
-        println("   └─ Scheduling navigation in coroutine scope")
+        println("   ├─ Action: replaceAll(HomeScreen)")
+        println("   └─ Scheduling navigation in composable scope")
 
-        navigationScope.launch {
+        scope.launch {
             try {
-                yield()
-                delay(150)
-
-                // Workaround: popAll() then push() to avoid lifecycle conflicts
-                navigator.popAll()
-                delay(50) // Small gap between operations
-                navigator.push(HomeScreen(onBackToMenu = onBackToMenu))
-
-                println("   ✓ Navigation completed!")
-                println("   ✓ New stack size: ${navigator.size}")
-                println("   ✓ Current screen: HomeScreen\n")
+                navigator.replaceAll(HomeScreen(onBackToMenu = onBackToMenu))
+                println("   ✓ Navigation completed! Stack size: ${navigator.size}\n")
             } catch (e: Exception) {
                 println("   ❌ Navigation failed: ${e.message}")
-                e.printStackTrace()
             }
         }
     }
@@ -59,21 +45,15 @@ class VoyagerNavigationImpl(
         println("\n🌉 [VoyagerNavigationImpl] KRelay called navigateToProfile('$userId')")
         println("   ┌─ This is the BRIDGE between KRelay → Voyager")
         println("   ├─ Current stack size: ${navigator.size}")
-        println("   ├─ Action: PUSH (add to stack)")
-        println("   ├─ Creating: ProfileScreen(userId='$userId', onBackToMenu)")
-        println("   └─ Scheduling navigation in coroutine scope")
+        println("   ├─ Action: push(ProfileScreen)")
+        println("   └─ Scheduling navigation in composable scope")
 
-        navigationScope.launch {
+        scope.launch {
             try {
-                yield()
-                delay(100)
                 navigator.push(ProfileScreen(userId = userId, onBackToMenu = onBackToMenu))
-                println("   ✓ Navigation completed!")
-                println("   ✓ New stack size: ${navigator.size}")
-                println("   ✓ Current screen: ProfileScreen\n")
+                println("   ✓ Navigation completed! Stack size: ${navigator.size}\n")
             } catch (e: Exception) {
                 println("   ❌ Navigation failed: ${e.message}")
-                e.printStackTrace()
             }
         }
     }
@@ -82,20 +62,15 @@ class VoyagerNavigationImpl(
         println("\n🌉 [VoyagerNavigationImpl] KRelay called navigateBack()")
         println("   ┌─ This is the BRIDGE between KRelay → Voyager")
         println("   ├─ Current stack size: ${navigator.size}")
-        println("   ├─ Action: POP (remove top screen)")
-        println("   └─ Scheduling navigation in coroutine scope")
+        println("   ├─ Action: pop()")
+        println("   └─ Scheduling navigation in composable scope")
 
-        navigationScope.launch {
+        scope.launch {
             try {
-                yield()
-                delay(100)
                 navigator.pop()
-                println("   ✓ Navigation completed!")
-                println("   ✓ New stack size: ${navigator.size}")
-                println("   ✓ Returned to previous screen\n")
+                println("   ✓ Navigation completed! Stack size: ${navigator.size}\n")
             } catch (e: Exception) {
                 println("   ❌ Navigation failed: ${e.message}")
-                e.printStackTrace()
             }
         }
     }
@@ -104,25 +79,15 @@ class VoyagerNavigationImpl(
         println("\n🌉 [VoyagerNavigationImpl] KRelay called navigateToLogin()")
         println("   ┌─ This is the BRIDGE between KRelay → Voyager")
         println("   ├─ Current stack size: ${navigator.size}")
-        println("   ├─ Action: POP ALL + PUSH (logout flow)")
-        println("   ├─ Creating: LoginScreen(onBackToMenu)")
-        println("   └─ Scheduling navigation in coroutine scope")
+        println("   ├─ Action: replaceAll(LoginScreen) — logout flow")
+        println("   └─ Scheduling navigation in composable scope")
 
-        navigationScope.launch {
+        scope.launch {
             try {
-                yield()
-                delay(150)
-
-                navigator.popAll()
-                delay(50)
-                navigator.push(LoginScreen(onBackToMenu = onBackToMenu))
-
-                println("   ✓ Navigation completed!")
-                println("   ✓ New stack size: ${navigator.size}")
-                println("   ✓ Current screen: LoginScreen (user logged out)\n")
+                navigator.replaceAll(LoginScreen(onBackToMenu = onBackToMenu))
+                println("   ✓ Navigation completed! Stack size: ${navigator.size}\n")
             } catch (e: Exception) {
                 println("   ❌ Navigation failed: ${e.message}")
-                e.printStackTrace()
             }
         }
     }
@@ -131,21 +96,15 @@ class VoyagerNavigationImpl(
         println("\n🌉 [VoyagerNavigationImpl] KRelay called navigateToSignup()")
         println("   ┌─ This is the BRIDGE between KRelay → Voyager")
         println("   ├─ Current stack size: ${navigator.size}")
-        println("   ├─ Action: PUSH (add signup screen)")
-        println("   ├─ Creating: SignupScreen(onBackToMenu)")
-        println("   └─ Scheduling navigation in coroutine scope")
+        println("   ├─ Action: push(SignupScreen)")
+        println("   └─ Scheduling navigation in composable scope")
 
-        navigationScope.launch {
+        scope.launch {
             try {
-                yield()
-                delay(100)
                 navigator.push(SignupScreen(onBackToMenu = onBackToMenu))
-                println("   ✓ Navigation completed!")
-                println("   ✓ New stack size: ${navigator.size}")
-                println("   ✓ Current screen: SignupScreen\n")
+                println("   ✓ Navigation completed! Stack size: ${navigator.size}\n")
             } catch (e: Exception) {
                 println("   ❌ Navigation failed: ${e.message}")
-                e.printStackTrace()
             }
         }
     }

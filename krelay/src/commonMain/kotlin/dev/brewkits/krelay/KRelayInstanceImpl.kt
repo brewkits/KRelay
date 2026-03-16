@@ -81,8 +81,11 @@ internal class KRelayInstanceImpl(
 
                 queue.clear()
 
-                if (debugMode && validActions.isNotEmpty()) {
-                    log("🔄 Replaying ${validActions.size} pending action(s) for ${kClass.simpleName}")
+                if (validActions.isNotEmpty()) {
+                    if (debugMode) {
+                        log("🔄 Replaying ${validActions.size} pending action(s) for ${kClass.simpleName}")
+                    }
+                    KRelayMetrics.recordReplay(kClass, validActions.size)
                 }
 
                 validActions.toList() // Copy to avoid concurrent modification
@@ -123,10 +126,8 @@ internal class KRelayInstanceImpl(
 
         if (impl != null) {
             // Case A: Implementation is alive -> Execute on main thread
-            if (debugMode) {
-                log("✅ Dispatching to ${kClass.simpleName}")
-            }
-
+            if (debugMode) log("✅ Dispatching to ${kClass.simpleName}")
+            KRelayMetrics.recordDispatch(kClass)
             runOnMain {
                 try {
                     block(impl)
@@ -137,31 +138,13 @@ internal class KRelayInstanceImpl(
         } else {
             // Case B: Implementation is dead/missing -> Queue for later
             lock.withLock {
-                if (debugMode) {
-                    log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing action...")
-                }
-
-                val actionWrapper: (Any) -> Unit = { instance ->
-                    block(instance as T)
-                }
-
-                val queue = pendingQueue.getOrPut(kClass) { mutableListOf() }
-
-                // Remove expired actions before adding new one
-                queue.removeAll { it.isExpired(actionExpiryMs) }
-
-                // Check queue size limit
-                if (queue.size >= maxQueueSize) {
-                    // Remove oldest action (FIFO)
-                    queue.removeAt(0)
-                    if (debugMode) {
-                        log("⚠️  Queue full for ${kClass.simpleName}. Removed oldest action.")
-                    }
-                }
-
-                // Add new action with timestamp and optional scope token
-                queue.add(QueuedAction(actionWrapper, scopeToken = scopeToken))
+                if (debugMode) log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing action...")
+                enqueueActionUnderLock(
+                    kClass,
+                    QueuedAction(action = { instance -> block(instance as T) }, scopeToken = scopeToken)
+                )
             }
+            KRelayMetrics.recordQueue(kClass)
         }
     }
 
@@ -181,9 +164,8 @@ internal class KRelayInstanceImpl(
         }
 
         if (impl != null) {
-            if (debugMode) {
-                log("✅ Dispatching to ${kClass.simpleName} with priority $priorityValue")
-            }
+            if (debugMode) log("✅ Dispatching to ${kClass.simpleName} with priority $priorityValue")
+            KRelayMetrics.recordDispatch(kClass)
             runOnMain {
                 try {
                     block(impl)
@@ -193,26 +175,50 @@ internal class KRelayInstanceImpl(
             }
         } else {
             lock.withLock {
-                if (debugMode) {
-                    log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing with priority $priorityValue...")
-                }
-
-                val actionWrapper: (Any) -> Unit = { instance -> block(instance as T) }
-                val queue = pendingQueue.getOrPut(kClass) { mutableListOf() }
-
-                queue.removeAll { it.isExpired(actionExpiryMs) }
-
-                if (queue.size >= maxQueueSize) {
-                    val lowestPriorityIndex = queue.indices.minByOrNull { queue[it].priority } ?: 0
-                    queue.removeAt(lowestPriorityIndex)
-                    if (debugMode) {
-                        log("⚠️  Queue full for ${kClass.simpleName}. Removed lowest priority action.")
-                    }
-                }
-
-                queue.add(QueuedAction(actionWrapper, priority = priorityValue))
-                queue.sortByDescending { it.priority }
+                if (debugMode) log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing with priority $priorityValue...")
+                enqueueActionUnderLock(
+                    kClass,
+                    QueuedAction(action = { instance -> block(instance as T) }, priority = priorityValue),
+                    evictByPriority = true
+                )
             }
+            KRelayMetrics.recordQueue(kClass)
+        }
+    }
+
+    /**
+     * Adds [action] to the pending queue for [kClass]. Must be called under [lock].
+     *
+     * - Removes expired entries before checking capacity.
+     * - On overflow: drops the lowest-priority entry when [evictByPriority] is true,
+     *   or the oldest entry (FIFO) when false.
+     * - Sorts the queue by priority descending when [evictByPriority] is true.
+     */
+    @PublishedApi
+    internal fun enqueueActionUnderLock(
+        kClass: KClass<*>,
+        action: QueuedAction,
+        evictByPriority: Boolean = false
+    ) {
+        val queue = pendingQueue.getOrPut(kClass) { mutableListOf() }
+        queue.removeAll { it.isExpired(actionExpiryMs) }
+
+        if (queue.size >= maxQueueSize) {
+            if (evictByPriority) {
+                val lowestIdx = queue.indices.minByOrNull { queue[it].priority } ?: 0
+                queue.removeAt(lowestIdx)
+            } else {
+                queue.removeAt(0)
+            }
+            if (debugMode) {
+                log("⚠️  Queue full for ${kClass.simpleName}. Removed ${if (evictByPriority) "lowest-priority" else "oldest"} action.")
+            }
+        }
+
+        queue.add(action)
+
+        if (evictByPriority) {
+            queue.sortByDescending { it.priority }
         }
     }
 
@@ -403,6 +409,15 @@ internal class KRelayInstanceImpl(
                 log("🗑️  Cancelled $cancelled queued action(s) for scope token '$token'")
             }
         }
+    }
+
+    /**
+     * Resets configuration to defaults without affecting registry or queues.
+     */
+    override fun resetConfiguration() {
+        maxQueueSize = 100
+        actionExpiryMs = 5 * 60 * 1000
+        debugMode = false
     }
 
     /**

@@ -68,6 +68,13 @@ object KRelay {
         debugMode = false
     )
 
+    /**
+     * The default [KRelayInstance] backing this singleton.
+     * Use this when an API requires a [KRelayInstance] reference and you want
+     * to target the global singleton (e.g., Compose integrations, DI bindings).
+     */
+    val instance: KRelayInstance get() = defaultInstance
+
     // ============================================================
     // SINGLETON API (v1.0 - Backward Compatible)
     // ============================================================
@@ -322,6 +329,12 @@ object KRelay {
      * ```
      */
     fun dump() = defaultInstance.dump()
+
+    /**
+     * Resets configuration to defaults (maxQueueSize=100, actionExpiryMs=300000, debugMode=false).
+     * Does **not** clear the registry or pending queue — use [reset] for a full wipe.
+     */
+    fun resetConfiguration() = defaultInstance.resetConfiguration()
 
     /**
      * Clears all registrations and pending queues.
@@ -599,4 +612,4 @@ inline fun <reified T : RelayFeature> KRelayInstance.clearQueue() {
  * Each call returns a distinct token. The token is human-readable for easier
  * debugging (contains the timestamp it was created).
  */
-fun scopedToken(): String = "krelay-${currentTimeMillis()}-${kotlin.random.Random.nextInt(100_000)}"
+fun scopedToken(): String = "krelay-${currentTimeMillis()}-${kotlin.random.Random.nextInt(Int.MAX_VALUE)}"

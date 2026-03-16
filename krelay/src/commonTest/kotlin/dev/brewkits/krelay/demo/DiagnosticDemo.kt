@@ -228,4 +228,43 @@ class DiagnosticDemo {
         println("  - actionExpiryMs: ${info.actionExpiryMs}ms = ${info.actionExpiryMs / 60000.0} min")
         println("  - debugMode: ${info.debugMode}")
     }
+
+    @Test
+    fun demoScenario8_ResetConfiguration() {
+        println("\n" + "=".repeat(60))
+        println("DEMO 8: resetConfiguration() — Restore Defaults Without Clearing Queue")
+        println("=".repeat(60))
+
+        KRelay.reset()
+        KRelay.debugMode = true
+
+        println("\n⚙️  Apply custom configuration...")
+        KRelay.maxQueueSize = 7
+        KRelay.actionExpiryMs = 30_000L
+        KRelay.debugMode = true
+
+        println("  - maxQueueSize: ${KRelay.maxQueueSize}")
+        println("  - actionExpiryMs: ${KRelay.actionExpiryMs}ms")
+        println("  - debugMode: ${KRelay.debugMode}")
+
+        println("\n📤 Dispatch 2 actions (queued — no impl)...")
+        KRelay.dispatch<ToastFeature> { it.show("survives reset") }
+        KRelay.dispatch<NavigationFeature> { it.navigate("/home") }
+        println("  Pending Toast: ${KRelay.getPendingCount<ToastFeature>()}")
+        println("  Pending Nav:   ${KRelay.getPendingCount<NavigationFeature>()}")
+
+        println("\n🔄 Calling KRelay.resetConfiguration()...")
+        KRelay.resetConfiguration()
+
+        println("\n📊 After resetConfiguration():")
+        println("  - maxQueueSize: ${KRelay.maxQueueSize} (expected 100)")
+        println("  - actionExpiryMs: ${KRelay.actionExpiryMs}ms (expected ${5 * 60 * 1000})")
+        println("  - debugMode: ${KRelay.debugMode} (expected false)")
+        println("  - Pending Toast (preserved): ${KRelay.getPendingCount<ToastFeature>()}")
+        println("  - Pending Nav (preserved): ${KRelay.getPendingCount<NavigationFeature>()}")
+
+        println("\n✅ Queue is intact — register to replay...")
+        KRelay.register<ToastFeature>(AndroidToast())
+        println("  Pending Toast after register: ${KRelay.getPendingCount<ToastFeature>()} (expected 0 — replayed)")
+    }
 }

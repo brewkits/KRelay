@@ -33,47 +33,61 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
 
 ---
 
-## Reusable `rememberKRelayImpl` Helper
+## Built-in Compose Helpers (v2.1.0+)
 
-Extract the pattern into a reusable composable helper:
+KRelay v2.1.0 ships `KRelayEffect` and `rememberKRelayImpl` as built-in composable helpers
+in the `dev.brewkits.krelay.compose` package (requires the `krelay-compose` artifact or the
+`composeApp` module that declares Compose dependencies).
+
+### `KRelayEffect` — register and forget
 
 ```kotlin
-/**
- * Remembers and registers a KRelay feature implementation.
- * Automatically unregisters when the composition leaves.
- *
- * @param instance The KRelayInstance to register on (default: KRelay singleton)
- * @param factory  Factory to create the feature implementation
- */
-@Composable
-inline fun <reified T : RelayFeature> rememberKRelayImpl(
-    instance: KRelayInstance = KRelay.defaultInstance,
-    crossinline factory: @DisallowComposableCalls () -> T
-): T {
-    val impl = remember { factory() }
-    DisposableEffect(impl) {
-        instance.register<T>(impl)
-        onDispose { instance.unregister<T>() }
-    }
-    return impl
-}
+import dev.brewkits.krelay.compose.KRelayEffect
 
-// Usage:
 @Composable
 fun HomeScreen() {
     val context = LocalContext.current
-    rememberKRelayImpl<ToastFeature> {
+
+    KRelayEffect<ToastFeature> {
         object : ToastFeature {
             override fun show(message: String) =
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
-    // ... UI
+    // Automatically unregisters when HomeScreen leaves composition
 }
 ```
 
-> **Copy this into your project** — KRelay's core library has zero Compose dependencies,
-> so this helper lives in your app code or a `krelay-compose` module you create.
+### `rememberKRelayImpl` — register and use the impl
+
+```kotlin
+import dev.brewkits.krelay.compose.rememberKRelayImpl
+
+@Composable
+fun HomeScreen() {
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    rememberKRelayImpl<ToastFeature> {
+        object : ToastFeature {
+            override fun show(message: String) {
+                scope.launch { snackbarHostState.showSnackbar(message) }
+            }
+        }
+    }
+
+    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { ... }
+}
+```
+
+Both helpers accept an optional `instance` parameter for use with the Instance API:
+
+```kotlin
+KRelayEffect<ToastFeature>(instance = myKRelayInstance) { ... }
+```
+
+> **Implementation note**: Both helpers use `KRelay.instance` (the public `KRelayInstance`
+> accessor added in v2.1.0) as the default, so they work correctly across module boundaries.
 
 ---
 

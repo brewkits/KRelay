@@ -235,6 +235,7 @@ internal fun <T : RelayFeature> KRelayInstanceImpl.dispatchPersistedInternal(
     if (impl != null) {
         // Execute immediately — no need to persist
         if (debugMode) log("✅ Persisted dispatch (immediate) $featureName::$actionKey")
+        KRelayMetrics.recordDispatch(kClass)
         runOnMain {
             try {
                 block(impl)
@@ -248,20 +249,17 @@ internal fun <T : RelayFeature> KRelayInstanceImpl.dispatchPersistedInternal(
 
         lock.withLock {
             if (debugMode) log("⏸️  Queuing persisted action $featureName::$actionKey (payload: $payload)")
-
-            val actionWrapper: (Any) -> Unit = { instance -> block(instance as T) }
-            val queue = pendingQueue.getOrPut(kClass) { mutableListOf() }
-            queue.removeAll { it.isExpired(actionExpiryMs) }
-
-            if (queue.size >= maxQueueSize) {
-                val lowestIdx = queue.indices.minByOrNull { queue[it].priority } ?: 0
-                queue.removeAt(lowestIdx)
-                if (debugMode) log("⚠️  Queue full for $featureName. Removed lowest priority action.")
-            }
-
-            queue.add(QueuedAction(actionWrapper, command.timestampMs, command.priority))
-            queue.sortByDescending { it.priority }
+            enqueueActionUnderLock(
+                kClass,
+                QueuedAction(
+                    action = { instance -> block(instance as T) },
+                    timestampMs = command.timestampMs,
+                    priority = command.priority
+                ),
+                evictByPriority = true
+            )
         }
+        KRelayMetrics.recordQueue(kClass)
 
         // Persist for process-death survival
         persistenceAdapter.save(scopeName, featureName, command)

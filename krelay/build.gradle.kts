@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "dev.brewkits"
-version = "2.0.0"
+version = "2.1.0"
 
 kotlin {
     androidTarget {
@@ -45,6 +45,13 @@ kotlin {
         androidMain.dependencies {
             // Android specific dependencies if needed
         }
+        // Instrumentation tests — run on real device/emulator: ./gradlew :krelay:connectedDebugAndroidTest
+        androidInstrumentedTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.androidx.testExt.junit)
+            implementation(libs.androidx.espresso.core)
+            implementation("org.jetbrains.kotlinx:atomicfu:0.23.2")
+        }
         iosMain.dependencies {
             // iOS specific dependencies if needed
         }
@@ -60,6 +67,9 @@ android {
 
         // Automatically apply consumer rules to apps using this library
         consumerProguardFiles("consumer-rules.pro")
+
+        // Run instrumented tests: ./gradlew :krelay:connectedDebugAndroidTest
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
@@ -86,6 +96,16 @@ tasks.register<org.jetbrains.dokka.gradle.DokkaTask>("dokkaHtmlCustom") {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Maven Central compliance: every publication must carry a -javadoc.jar.
+// KMP native/metadata targets don't produce real Javadoc, so we publish an
+// empty placeholder (same pattern used by kotlinx libraries).
+// ---------------------------------------------------------------------------
+val emptyJavadocJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("javadoc")
+    // deliberately empty — Dokka HTML lives in docs/api/, not here
+}
+
 publishing {
     publications {
         withType<MavenPublication> {
@@ -96,12 +116,14 @@ publishing {
             // - iosArm64 -> krelay-iosarm64
             // - iosSimulatorArm64 -> krelay-iossimulatorarm64
             // - iosX64 -> krelay-iosx64
-            // - js -> krelay-js
             version = project.version.toString()
+
+            // Attach javadoc JAR to every publication (Maven Central requires it)
+            artifact(emptyJavadocJar)
 
             pom {
                 name.set("KRelay")
-                description.set("The Native Interop Bridge for Kotlin Multiplatform - Safe dispatch, weak registry, and sticky queue for seamless ViewModel-to-View communication")
+                description.set("The missing piece in Kotlin Multiplatform. Safely dispatch UI events (Toasts, Navigation, Permissions) from shared ViewModels to Android/iOS — zero memory leaks, sticky queue, always on Main Thread.")
                 url.set("https://github.com/brewkits/krelay")
 
                 licenses {

@@ -36,7 +36,7 @@ import dev.brewkits.krelay.unregister
  */
 @Composable
 inline fun <reified T : RelayFeature> KRelayEffect(
-    instance: KRelayInstance = KRelay.defaultInstance,
+    instance: KRelayInstance = KRelay.instance,
     crossinline factory: () -> T
 ) {
     val impl = remember { factory() }
@@ -73,7 +73,7 @@ inline fun <reified T : RelayFeature> KRelayEffect(
  */
 @Composable
 inline fun <reified T : RelayFeature> rememberKRelayImpl(
-    instance: KRelayInstance = KRelay.defaultInstance,
+    instance: KRelayInstance = KRelay.instance,
     crossinline factory: () -> T
 ): T {
     val impl = remember { factory() }
