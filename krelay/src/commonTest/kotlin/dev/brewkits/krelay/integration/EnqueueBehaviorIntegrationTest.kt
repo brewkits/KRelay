@@ -152,14 +152,15 @@ class EnqueueBehaviorIntegrationTest {
     @Test
     fun expiry_prunesBeforeOverflowCheck_allowsNewEntries() = runBlocking {
         instance.maxQueueSize = 2
-        // isExpired(0L) = (elapsed > 0) — true after ≥ 1 ms has elapsed
-        instance.actionExpiryMs = 0L
+        // Expire after > 10 ms — gives sufficient margin on iOS Simulator in CI
+        instance.actionExpiryMs = 10L
 
         instance.dispatch<WorkFeature> { it.run("old-1") }
         instance.dispatch<WorkFeature> { it.run("old-2") }
 
-        // Wait so old-1 / old-2 are genuinely expired (elapsed > 0 ms)
-        delay(5)
+        // Wait well beyond the expiry window. 100 ms is generous but fast enough
+        // that the test stays snappy even on slow CI runners.
+        delay(200)
 
         // Queue appears full (2/2), but both entries are now expired.
         // enqueueActionUnderLock prunes them first → "fresh" is added without FIFO eviction.
