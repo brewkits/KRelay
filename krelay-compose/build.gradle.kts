@@ -1,10 +1,10 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import java.net.URL
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
-    alias(libs.plugins.dokka)
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeCompiler)
     id("maven-publish")
     id("signing")
 }
@@ -20,56 +20,34 @@ kotlin {
         publishLibraryVariants("release")
     }
 
-    // iOS targets - publish each as separate artifact
     listOf(
         iosArm64(),
         iosSimulatorArm64(),
         iosX64()
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
-            baseName = "KRelay"
+            baseName = "KRelayCompose"
             isStatic = true
         }
     }
 
     sourceSets {
         commonMain.dependencies {
-            // No external dependencies - pure Kotlin stdlib
+            api(project(":krelay"))
+            implementation(libs.compose.runtime)
+            implementation(libs.compose.foundation)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
-            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
-            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
-            implementation("org.jetbrains.kotlinx:atomicfu:0.23.2")
-        }
-        androidMain.dependencies {
-            // Android specific dependencies if needed
-        }
-        // Instrumentation tests — run on real device/emulator: ./gradlew :krelay:connectedDebugAndroidTest
-        androidInstrumentedTest.dependencies {
-            implementation(libs.kotlin.test)
-            implementation(libs.androidx.testExt.junit)
-            implementation(libs.androidx.espresso.core)
-            implementation("org.jetbrains.kotlinx:atomicfu:0.23.2")
-        }
-        iosMain.dependencies {
-            // iOS specific dependencies if needed
         }
     }
 }
 
 android {
-    namespace = "dev.brewkits.krelay"
+    namespace = "dev.brewkits.krelay.compose"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
-
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
-
-        // Automatically apply consumer rules to apps using this library
-        consumerProguardFiles("consumer-rules.pro")
-
-        // Run instrumented tests: ./gradlew :krelay:connectedDebugAndroidTest
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
@@ -78,52 +56,25 @@ android {
     }
 }
 
-// Generate Dokka HTML docs: ./gradlew :krelay:dokkaHtml
-// Output: krelay/build/dokka/html/index.html
-tasks.register<org.jetbrains.dokka.gradle.DokkaTask>("dokkaHtmlCustom") {
-    outputDirectory.set(rootProject.file("docs/api"))
-    moduleName.set("KRelay")
-    dokkaSourceSets.configureEach {
-        includeNonPublic.set(false)
-        skipDeprecated.set(false)
-        reportUndocumented.set(true)
-        skipEmptyPackages.set(true)
-        sourceLink {
-            localDirectory.set(file("src/commonMain/kotlin"))
-            remoteUrl.set(URL("https://github.com/brewkits/krelay/blob/main/krelay/src/commonMain/kotlin"))
-            remoteLineSuffix.set("#L")
-        }
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Maven Central compliance: every publication must carry a -javadoc.jar.
-// KMP native/metadata targets don't produce real Javadoc, so we publish an
-// empty placeholder (same pattern used by kotlinx libraries).
 // ---------------------------------------------------------------------------
 val emptyJavadocJar by tasks.registering(Jar::class) {
     archiveClassifier.set("javadoc")
-    // deliberately empty — Dokka HTML lives in docs/api/, not here
+    // deliberately empty — Dokka HTML lives in docs/api/
 }
 
 publishing {
     publications {
         withType<MavenPublication> {
             groupId = "dev.brewkits"
-            // Don't override artifactId - let Gradle use default naming:
-            // - kotlinMultiplatform -> krelay
-            // - androidRelease -> krelay-android
-            // - iosArm64 -> krelay-iosarm64
-            // - iosSimulatorArm64 -> krelay-iossimulatorarm64
-            // - iosX64 -> krelay-iosx64
             version = project.version.toString()
 
-            // Attach javadoc JAR to every publication (Maven Central requires it)
             artifact(emptyJavadocJar)
 
             pom {
-                name.set("KRelay")
-                description.set("The missing piece in Kotlin Multiplatform. Safely dispatch UI events (Toasts, Navigation, Permissions) from shared ViewModels to Android/iOS — zero memory leaks, sticky queue, always on Main Thread.")
+                name.set("KRelay Compose")
+                description.set("Compose Multiplatform helpers for KRelay — lifecycle-aware KRelayEffect and rememberKRelayImpl composables.")
                 url.set("https://github.com/brewkits/krelay")
 
                 licenses {
@@ -151,13 +102,11 @@ publishing {
     }
 
     repositories {
-        // Local staging repository for verification before publishing
         maven {
             name = "MavenCentralLocal"
             url = uri("${layout.buildDirectory.get()}/maven-central-staging")
         }
 
-        // Maven Central (Sonatype OSSRH)
         maven {
             name = "OSSRH"
             val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
@@ -173,16 +122,13 @@ publishing {
 }
 
 signing {
-    // Support both in-memory key (signing.key) and keyring (signing.keyId)
     val signingKey = findProperty("signing.key")?.toString() ?: System.getenv("SIGNING_KEY")
     val signingPassword = findProperty("signing.password")?.toString() ?: System.getenv("SIGNING_PASSWORD")
 
     if (signingKey != null && signingPassword != null) {
-        // Use in-memory key (recommended for CI/CD)
         useInMemoryPgpKeys(signingKey, signingPassword)
         sign(publishing.publications)
     } else if (findProperty("signing.keyId") != null) {
-        // Use traditional GPG keyring
         sign(publishing.publications)
     }
 }

@@ -48,6 +48,8 @@ enum class ActionPriority(val value: Int) {
  * @param priority The priority level for this action
  * @param block The action to execute
  */
+@ProcessDeathUnsafe
+@MemoryLeakWarning
 inline fun <reified T : RelayFeature> KRelay.dispatchWithPriority(
     priority: ActionPriority,
     noinline block: (T) -> Unit
@@ -82,6 +84,7 @@ inline fun <reified T : RelayFeature> KRelayInstance.dispatchWithPriority(
 /**
  * Internal implementation of priority dispatch (singleton).
  * Delegates queue management to [defaultInstance.enqueueActionUnderLock].
+ * Same atomic check-and-enqueue pattern as [KRelayInstanceImpl.dispatchInternal].
  */
 @Suppress("UNCHECKED_CAST")
 @PublishedApi
@@ -90,12 +93,22 @@ internal fun <T : RelayFeature> KRelay.dispatchWithPriorityInternal(
     priorityValue: Int,
     block: (T) -> Unit
 ) {
-    val impl = lock.withLock {
-        registry[kClass]?.get() as? T
+    val impl: T? = lock.withLock {
+        val found = registry[kClass]?.get() as? T
+        if (found == null) {
+            if (debugMode) log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing action with priority $priorityValue...")
+            defaultInstance.enqueueActionUnderLock(
+                kClass,
+                QueuedAction(action = { instance -> block(instance as T) }, priority = priorityValue),
+                evictByPriority = true
+            )
+        } else {
+            if (debugMode) log("✅ Dispatching to ${kClass.simpleName} with priority $priorityValue")
+        }
+        found
     }
 
     if (impl != null) {
-        if (debugMode) log("✅ Dispatching to ${kClass.simpleName} with priority $priorityValue")
         KRelayMetrics.recordDispatch(kClass)
         runOnMain {
             try {
@@ -105,14 +118,6 @@ internal fun <T : RelayFeature> KRelay.dispatchWithPriorityInternal(
             }
         }
     } else {
-        lock.withLock {
-            if (debugMode) log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing action with priority $priorityValue...")
-            defaultInstance.enqueueActionUnderLock(
-                kClass,
-                QueuedAction(action = { instance -> block(instance as T) }, priority = priorityValue),
-                evictByPriority = true
-            )
-        }
         KRelayMetrics.recordQueue(kClass)
     }
 }

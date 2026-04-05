@@ -3,75 +3,85 @@ package dev.brewkits.krelay
 import kotlin.reflect.KClass
 
 /**
- * Internal implementation of KRelayInstance.
+ * Internal implementation of [KRelayInstance].
  *
- * This class contains the same core logic as the KRelay singleton,
- * but operating on instance-level registry and queue.
+ * This class contains the core logic for registration management, action queueing,
+ * and persistence orchestration. It is designed to be thread-safe across all 
+ * supported KMP platforms using platform-specific [Lock] implementations.
  *
- * Each instance has:
- * - Isolated registry (WeakRef map)
- * - Isolated pending queue
- * - Isolated lock for thread safety
- * - Independent configuration
+ * @property scopeName Unique name for this instance, used for logging and persistence.
+ * @property maxQueueSize Limit on the number of actions per feature type.
+ * @property actionExpiryMs Duration after which queued actions are discarded.
+ * @property debugMode Enables detailed internal logging.
  */
 @PublishedApi
 internal class KRelayInstanceImpl(
     override val scopeName: String,
     override var maxQueueSize: Int = 100,
-    override var actionExpiryMs: Long = 5 * 60 * 1000,
+    override var actionExpiryMs: Long = 300_000,
     override var debugMode: Boolean = false
 ) : KRelayInstance {
 
-    // Instance-level lock
+    /**
+     * Platform-agnostic reentrant lock.
+     */
     @PublishedApi
     internal val lock = Lock()
 
-    // Instance-level registry
+    /**
+     * Thread-safe registry holding [WeakRef]s to platform implementations.
+     */
     @PublishedApi
     internal val registry = mutableMapOf<KClass<*>, WeakRef<Any>>()
 
-    // Instance-level pending queue
+    /**
+     * The "Sticky Queue" holding actions awaiting registration.
+     */
     @PublishedApi
     internal val pendingQueue = mutableMapOf<KClass<*>, MutableList<QueuedAction>>()
 
-    // Persistence adapter (default: in-memory, no actual persistence)
+    /**
+     * The current persistence engine. Defaults to an in-memory mock.
+     */
     @PublishedApi
-    internal var persistenceAdapter: KRelayPersistenceAdapter = InMemoryPersistenceAdapter()
+    internal var _persistenceAdapter: KRelayPersistenceAdapter = InMemoryPersistenceAdapter()
 
-    // Named action factories for persisted dispatch (featureSimpleName::actionKey → factory)
+    /**
+     * Map of feature-action keys to their reconstruction factories.
+     */
     @PublishedApi
     internal val actionFactories = mutableMapOf<String, ActionFactory<*>>()
 
-    // Feature simple name → KClass mapping (populated by registerActionFactory)
+    /**
+     * Reverse mapping from stable string keys to [KClass] objects.
+     */
     @PublishedApi
     internal val featureKeyToKClass = mutableMapOf<String, KClass<*>>()
 
-    // Note: register() is provided as extension function in KRelay.kt
-
     /**
-     * Internal registration logic with thread safety and expiry handling.
+     * Registers an implementation and triggers immediate replay of queued actions.
      */
     @Suppress("UNCHECKED_CAST")
-    @PublishedApi
-    internal fun <T : RelayFeature> registerInternal(kClass: KClass<T>, impl: T) {
+    override fun <T : RelayFeature> register(kClass: KClass<T>, impl: T) {
         val actionsToReplay = lock.withLock {
             if (debugMode) {
-                // Warn if overwriting an existing alive registration
                 val existing = registry[kClass]?.get()
                 if (existing != null && existing !== impl) {
-                    log("⚠️  Overwriting existing registration for ${kClass.simpleName}. " +
-                        "Old impl will be replaced. If this is intentional (e.g. screen rotation), ignore this warning.")
+                    // Only warn when the *type* of the new impl differs from the existing one.
+                    // Same-class replacement (e.g. Activity recreated by Compose lifecycle) is
+                    // expected and not a developer mistake — suppress to avoid log noise.
+                    if (existing::class != impl::class) {
+                        log("⚠️  Overwriting ${kClass.simpleName}: replacing ${existing::class.simpleName} with ${impl::class.simpleName}. " +
+                            "If unintentional, check that only one component registers this feature at a time.")
+                    }
                 }
                 log("📝 Registering ${kClass.simpleName}")
             }
 
-            // Save weak reference
             registry[kClass] = WeakRef(impl as Any)
 
-            // Check if there are pending actions
             val queue = pendingQueue[kClass]
             if (!queue.isNullOrEmpty()) {
-                // Filter out expired actions
                 val validActions = queue.filter { !it.isExpired(actionExpiryMs) }
                 val expiredCount = queue.size - validActions.size
 
@@ -88,13 +98,12 @@ internal class KRelayInstanceImpl(
                     KRelayMetrics.recordReplay(kClass, validActions.size)
                 }
 
-                validActions.toList() // Copy to avoid concurrent modification
+                validActions.toList()
             } else {
                 emptyList()
             }
         }
 
-        // Replay all valid actions on main thread (outside lock)
         if (actionsToReplay.isNotEmpty()) {
             runOnMain {
                 actionsToReplay.forEach { queuedAction ->
@@ -108,25 +117,30 @@ internal class KRelayInstanceImpl(
         }
     }
 
-    // Note: dispatch() is provided as extension function in KRelay.kt
-
     /**
-     * Internal dispatch logic with type information.
+     * Core dispatch logic: executes immediately or queues.
      */
     @Suppress("UNCHECKED_CAST")
-    @PublishedApi
-    internal fun <T : RelayFeature> dispatchInternal(
+    override fun <T : RelayFeature> dispatch(
         kClass: KClass<T>,
         block: (T) -> Unit,
-        scopeToken: String? = null
+        scopeToken: String?
     ) {
-        val impl = lock.withLock {
-            registry[kClass]?.get() as? T
+        val impl: T? = lock.withLock {
+            val found = registry[kClass]?.get() as? T
+            if (found == null) {
+                if (debugMode) log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing action...")
+                enqueueActionUnderLock(
+                    kClass,
+                    QueuedAction(action = { instance -> block(instance as T) }, scopeToken = scopeToken)
+                )
+            } else {
+                if (debugMode) log("✅ Dispatching to ${kClass.simpleName}")
+            }
+            found
         }
 
         if (impl != null) {
-            // Case A: Implementation is alive -> Execute on main thread
-            if (debugMode) log("✅ Dispatching to ${kClass.simpleName}")
             KRelayMetrics.recordDispatch(kClass)
             runOnMain {
                 try {
@@ -136,21 +150,12 @@ internal class KRelayInstanceImpl(
                 }
             }
         } else {
-            // Case B: Implementation is dead/missing -> Queue for later
-            lock.withLock {
-                if (debugMode) log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing action...")
-                enqueueActionUnderLock(
-                    kClass,
-                    QueuedAction(action = { instance -> block(instance as T) }, scopeToken = scopeToken)
-                )
-            }
             KRelayMetrics.recordQueue(kClass)
         }
     }
 
     /**
-     * Internal priority dispatch logic for instance API.
-     * Mirrors [KRelay.dispatchWithPriorityInternal] but operates on instance-level state.
+     * Dispatches an action with a specific priority level.
      */
     @Suppress("UNCHECKED_CAST")
     @PublishedApi
@@ -159,12 +164,22 @@ internal class KRelayInstanceImpl(
         priorityValue: Int,
         block: (T) -> Unit
     ) {
-        val impl = lock.withLock {
-            registry[kClass]?.get() as? T
+        val impl: T? = lock.withLock {
+            val found = registry[kClass]?.get() as? T
+            if (found == null) {
+                if (debugMode) log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing with priority $priorityValue...")
+                enqueueActionUnderLock(
+                    kClass,
+                    QueuedAction(action = { instance -> block(instance as T) }, priority = priorityValue),
+                    evictByPriority = true
+                )
+            } else {
+                if (debugMode) log("✅ Dispatching to ${kClass.simpleName} with priority $priorityValue")
+            }
+            found
         }
 
         if (impl != null) {
-            if (debugMode) log("✅ Dispatching to ${kClass.simpleName} with priority $priorityValue")
             KRelayMetrics.recordDispatch(kClass)
             runOnMain {
                 try {
@@ -174,25 +189,12 @@ internal class KRelayInstanceImpl(
                 }
             }
         } else {
-            lock.withLock {
-                if (debugMode) log("⏸️  Implementation missing for ${kClass.simpleName}. Queuing with priority $priorityValue...")
-                enqueueActionUnderLock(
-                    kClass,
-                    QueuedAction(action = { instance -> block(instance as T) }, priority = priorityValue),
-                    evictByPriority = true
-                )
-            }
             KRelayMetrics.recordQueue(kClass)
         }
     }
 
     /**
-     * Adds [action] to the pending queue for [kClass]. Must be called under [lock].
-     *
-     * - Removes expired entries before checking capacity.
-     * - On overflow: drops the lowest-priority entry when [evictByPriority] is true,
-     *   or the oldest entry (FIFO) when false.
-     * - Sorts the queue by priority descending when [evictByPriority] is true.
+     * Adds an action to the queue while enforcing limits and performing eviction.
      */
     @PublishedApi
     internal fun enqueueActionUnderLock(
@@ -205,13 +207,18 @@ internal class KRelayInstanceImpl(
 
         if (queue.size >= maxQueueSize) {
             if (evictByPriority) {
-                val lowestIdx = queue.indices.minByOrNull { queue[it].priority } ?: 0
-                queue.removeAt(lowestIdx)
+                val lowestPriorityAction = queue.minByOrNull { it.priority }
+                if (lowestPriorityAction != null) {
+                    queue.remove(lowestPriorityAction)
+                } else {
+                    queue.removeAt(0)
+                }
             } else {
                 queue.removeAt(0)
             }
+            
             if (debugMode) {
-                log("⚠️  Queue full for ${kClass.simpleName}. Removed ${if (evictByPriority) "lowest-priority" else "oldest"} action.")
+                log("⚠️  Queue full for ${kClass.simpleName}. Evicted ${if (evictByPriority) "lowest-priority" else "oldest"} action.")
             }
         }
 
@@ -222,46 +229,38 @@ internal class KRelayInstanceImpl(
         }
     }
 
-    // Note: unregister() is provided as extension function in KRelay.kt
-
     /**
-     * Internal unregister logic with thread safety.
+     * Unregisters an implementation with identity check.
      */
-    @PublishedApi
-    internal fun <T : RelayFeature> unregisterInternal(kClass: KClass<T>) {
+    override fun <T : RelayFeature> unregister(kClass: KClass<T>, impl: T?) {
         lock.withLock {
-            if (debugMode) {
-                log("🗑️  Unregistering ${kClass.simpleName}")
+            if (impl == null || registry[kClass]?.get() === impl) {
+                if (debugMode) {
+                    log("🗑️  Unregistering ${kClass.simpleName}")
+                }
+                registry[kClass]?.clear()
+                registry.remove(kClass)
             }
-            registry[kClass]?.clear()
-            registry.remove(kClass)
         }
     }
 
-    // Note: isRegistered() is provided as extension function in KRelay.kt
-
     /**
-     * Internal isRegistered logic.
+     * Checks if a feature is currently registered and alive.
      */
-    @PublishedApi
-    internal fun <T : RelayFeature> isRegisteredInternal(kClass: KClass<T>): Boolean {
+    override fun <T : RelayFeature> isRegistered(kClass: KClass<T>): Boolean {
         return lock.withLock {
             val weakRef = registry[kClass]
             weakRef?.get() != null
         }
     }
 
-    // Note: getPendingCount() is provided as extension function in KRelay.kt
-
     /**
-     * Internal getPendingCount logic.
+     * Returns the current size of the pending queue for a feature.
      */
-    @PublishedApi
-    internal fun <T : RelayFeature> getPendingCountInternal(kClass: KClass<T>): Int {
+    override fun <T : RelayFeature> getPendingCount(kClass: KClass<T>): Int {
         return lock.withLock {
             val queue = pendingQueue[kClass]
             if (queue != null) {
-                // Remove expired actions
                 queue.removeAll { it.isExpired(actionExpiryMs) }
                 queue.size
             } else {
@@ -270,13 +269,10 @@ internal class KRelayInstanceImpl(
         }
     }
 
-    // Note: clearQueue() is provided as extension function in KRelay.kt
-
     /**
-     * Internal clear queue logic with thread safety.
+     * Clears the pending queue for a feature.
      */
-    @PublishedApi
-    internal fun <T : RelayFeature> clearQueueInternal(kClass: KClass<T>) {
+    override fun <T : RelayFeature> clearQueue(kClass: KClass<T>) {
         lock.withLock {
             val count = pendingQueue[kClass]?.size ?: 0
             pendingQueue.remove(kClass)
@@ -287,18 +283,12 @@ internal class KRelayInstanceImpl(
         }
     }
 
-    /**
-     * Gets the number of currently registered features.
-     */
     override fun getRegisteredFeaturesCount(): Int {
         return lock.withLock {
             registry.count { it.value.get() != null }
         }
     }
 
-    /**
-     * Gets the total number of pending actions across all features.
-     */
     override fun getTotalPendingCount(): Int {
         return lock.withLock {
             var total = 0
@@ -310,9 +300,6 @@ internal class KRelayInstanceImpl(
         }
     }
 
-    /**
-     * Gets detailed debug information about this instance's state.
-     */
     override fun getDebugInfo(): DebugInfo {
         return lock.withLock {
             val registeredFeatures = mutableListOf<String>()
@@ -320,14 +307,12 @@ internal class KRelayInstanceImpl(
             var totalPending = 0
             var expiredCount = 0
 
-            // Collect registered features (alive only)
             registry.forEach { (kClass, weakRef) ->
                 if (weakRef.get() != null) {
                     registeredFeatures.add(kClass.simpleName ?: "Unknown")
                 }
             }
 
-            // Collect queue info and cleanup expired
             pendingQueue.forEach { (kClass, queue) ->
                 val beforeSize = queue.size
                 queue.removeAll { it.isExpired(actionExpiryMs) }
@@ -354,9 +339,6 @@ internal class KRelayInstanceImpl(
         }
     }
 
-    /**
-     * Dumps this instance's state to console for debugging.
-     */
     override fun dump() {
         val info = getDebugInfo()
 
@@ -394,9 +376,6 @@ internal class KRelayInstanceImpl(
         println("================================================")
     }
 
-    /**
-     * Cancels all queued actions tagged with the given scope token.
-     */
     override fun cancelScope(token: String) {
         lock.withLock {
             var cancelled = 0
@@ -411,30 +390,203 @@ internal class KRelayInstanceImpl(
         }
     }
 
-    /**
-     * Resets configuration to defaults without affecting registry or queues.
-     */
     override fun resetConfiguration() {
-        maxQueueSize = 100
-        actionExpiryMs = 5 * 60 * 1000
-        debugMode = false
+        lock.withLock {
+            maxQueueSize = 100
+            actionExpiryMs = 300_000
+            debugMode = false
+        }
     }
 
-    /**
-     * Clears all registrations and pending queues for this instance.
-     */
     override fun reset() {
         lock.withLock {
             if (debugMode) {
                 log("🔄 Resetting KRelay instance [$scopeName] - clearing all registrations and queues")
             }
-            registry.values.forEach { it.clear() }
             registry.clear()
             pendingQueue.clear()
             actionFactories.clear()
             featureKeyToKClass.clear()
         }
-        persistenceAdapter.clearScope(scopeName)
+        _persistenceAdapter.clearScope(scopeName)
+    }
+
+    override fun setPersistenceAdapter(adapter: KRelayPersistenceAdapter) {
+        this._persistenceAdapter = adapter
+    }
+
+    override fun <T : RelayFeature> registerActionFactory(
+        kClass: KClass<T>,
+        featureKey: String,
+        actionKey: String,
+        factory: ActionFactory<T>
+    ) {
+        lock.withLock {
+            featureKeyToKClass[featureKey] = kClass
+            @Suppress("UNCHECKED_CAST")
+            actionFactories["$featureKey::$actionKey"] = factory as ActionFactory<*>
+            if (debugMode) {
+                log("🏭 Registered factory for $featureKey::$actionKey")
+            }
+        }
+    }
+
+    /**
+     * Atomic check-and-enqueue for persisted dispatch.
+     *
+     * Factory lookup, impl check, and enqueue all happen inside a single lock to avoid
+     * the same TOCTOU race as [dispatch]: `register()` completing between check and enqueue
+     * would otherwise leave the action stranded in the queue indefinitely.
+     *
+     * Persistence I/O (`save`) is intentionally performed *outside* the lock so that
+     * disk latency does not block other threads that need the lock.
+     */
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : RelayFeature> dispatchPersisted(
+        kClass: KClass<T>,
+        featureKey: String,
+        actionKey: String,
+        payload: String,
+        priorityValue: Int
+    ) {
+        val factoryKey = "$featureKey::$actionKey"
+
+        // Resolve factory and reconstruct block before acquiring the main lock.
+        // factory() only produces a lambda — no I/O, safe to call outside lock.
+        val factory = lock.withLock { actionFactories[factoryKey] } as? ActionFactory<T>
+            ?: error(
+                "No factory registered for '$factoryKey'. " +
+                "Call instance.registerActionFactory<$featureKey>(\"$actionKey\") { payload -> { feature -> ... } } first."
+            )
+        val block = factory(payload)
+
+        // Atomic check-and-enqueue: impl lookup + optional queue insertion in one lock
+        var needsPersist = false
+        val command = PersistedCommand(actionKey, payload, currentTimeMillis(), priorityValue)
+
+        val impl: T? = lock.withLock {
+            val found = registry[kClass]?.get() as? T
+            if (found == null) {
+                if (debugMode) log("⏸️  Queuing persisted action $featureKey::$actionKey (payload: $payload)")
+                enqueueActionUnderLock(
+                    kClass,
+                    QueuedAction(
+                        action = { instance -> block(instance as T) },
+                        timestampMs = command.timestampMs,
+                        priority = command.priority
+                    ),
+                    evictByPriority = true
+                )
+                needsPersist = true
+            } else {
+                if (debugMode) log("✅ Persisted dispatch (immediate) $featureKey::$actionKey")
+            }
+            found
+        }
+
+        if (impl != null) {
+            KRelayMetrics.recordDispatch(kClass)
+            runOnMain {
+                try {
+                    block(impl)
+                } catch (e: Exception) {
+                    log("❌ Error in persisted dispatch for $featureKey::$actionKey — ${e.message}")
+                }
+            }
+        } else {
+            // I/O outside lock — disk latency does not affect the locked dispatch path
+            if (needsPersist) {
+                _persistenceAdapter.save(scopeName, featureKey, command)
+                if (debugMode) log("💾 Persisted $featureKey::$actionKey to storage")
+            }
+            KRelayMetrics.recordQueue(kClass)
+        }
+    }
+
+    /**
+     * Restores persisted actions from storage into the in-memory queue.
+     *
+     * Design goals:
+     * 1. **No I/O inside lock**: `loadAll` and `remove` calls are never made while holding
+     *    the instance lock, so disk latency cannot block the main thread's dispatch path.
+     * 2. **Single lock acquisition**: all in-memory mutations (factory lookups + enqueue)
+     *    happen inside one `lock.withLock` block, eliminating repeated lock/unlock overhead
+     *    and reducing TOCTOU windows to zero.
+     * 3. **Remove-after-enqueue**: persistence entries are deleted only after they are
+     *    successfully enqueued; if the process dies between enqueue and remove the command
+     *    will be restored again on the next start (safe duplicate replay rather than loss).
+     *
+     * **Important**: call this method from a background thread (e.g. a coroutine on
+     * `Dispatchers.IO`) — `loadAll` performs disk I/O and can block for several
+     * milliseconds on a cold start.
+     */
+    override fun restorePersistedActions() {
+        // Step 1: I/O outside lock — load everything from disk first
+        val persistedMap = _persistenceAdapter.loadAll(scopeName)
+        if (persistedMap.isEmpty()) {
+            if (debugMode) log("📂 No persisted actions to restore for scope '$scopeName'")
+            return
+        }
+
+        val totalCount = persistedMap.values.sumOf { it.size }
+        if (debugMode) log("📂 Restoring $totalCount persisted action(s) for scope '$scopeName'")
+
+        // Step 2: Collect the I/O outcome lists so we can remove from disk after unlocking
+        data class EnqueuedEntry(val featureKey: String, val command: PersistedCommand)
+
+        val toRemove = mutableListOf<EnqueuedEntry>()
+        var restoredCount = 0
+        var skippedExpired = 0
+        var skippedNoFactory = 0
+
+        // Step 3: Single lock acquisition — all in-memory work happens here
+        lock.withLock {
+            persistedMap.forEach { (featureKey, commands) ->
+                val kClass = featureKeyToKClass[featureKey]
+                if (kClass == null) {
+                    if (debugMode) log("⚠️  No KClass for '$featureKey'. Register factory before restorePersistedActions().")
+                    skippedNoFactory += commands.size
+                    commands.forEach { toRemove.add(EnqueuedEntry(featureKey, it)) }
+                    return@forEach
+                }
+
+                commands.forEach { command ->
+                    if (command.isExpired(actionExpiryMs)) {
+                        skippedExpired++
+                        toRemove.add(EnqueuedEntry(featureKey, command))
+                        return@forEach
+                    }
+
+                    val factoryKey = "$featureKey::${command.actionKey}"
+                    @Suppress("UNCHECKED_CAST")
+                    val factory = actionFactories[factoryKey] as? ActionFactory<Any>
+                    if (factory == null) {
+                        if (debugMode) log("⚠️  No factory for '$factoryKey'. Skipping restored action.")
+                        skippedNoFactory++
+                        toRemove.add(EnqueuedEntry(featureKey, command))
+                        return@forEach
+                    }
+
+                    // Reconstruct action and enqueue — all in-memory, no I/O
+                    val block = factory(command.payload)
+                    val queue = pendingQueue.getOrPut(kClass) { mutableListOf() }
+                    queue.add(QueuedAction({ instance -> block(instance) }, command.timestampMs, command.priority))
+                    queue.sortByDescending { it.priority }
+
+                    toRemove.add(EnqueuedEntry(featureKey, command))
+                    restoredCount++
+                }
+            }
+        }
+
+        // Step 4: I/O outside lock — delete entries from disk now that they are safely in memory
+        toRemove.forEach { (featureKey, command) ->
+            _persistenceAdapter.remove(scopeName, featureKey, command)
+        }
+
+        if (debugMode) {
+            log("✅ Restored $restoredCount action(s). Skipped: $skippedExpired expired, $skippedNoFactory no-factory.")
+        }
     }
 
     /**

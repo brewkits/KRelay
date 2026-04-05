@@ -48,7 +48,6 @@ class NSUserDefaultsPersistenceAdapter : KRelayPersistenceAdapter {
         val existing = loadRawEntries(key).toMutableList()
         existing.add(encodeEntry(featureKey, command))
         defaults.setObject(existing, key)
-        defaults.synchronize()
     }
 
     override fun loadAll(scopeName: String): Map<String, List<PersistedCommand>> {
@@ -68,12 +67,10 @@ class NSUserDefaultsPersistenceAdapter : KRelayPersistenceAdapter {
         val existing = loadRawEntries(key).toMutableList()
         existing.remove(encodeEntry(featureKey, command))
         defaults.setObject(existing, key)
-        defaults.synchronize()
     }
 
     override fun clearScope(scopeName: String) {
         defaults.removeObjectForKey(scopeKey(scopeName))
-        defaults.synchronize()
     }
 
     override fun clearAll() {
@@ -82,7 +79,6 @@ class NSUserDefaultsPersistenceAdapter : KRelayPersistenceAdapter {
             .filterIsInstance<String>()
             .filter { it.startsWith(KEY_PREFIX) }
         allKeys.forEach { defaults.removeObjectForKey(it) }
-        defaults.synchronize()
     }
 
     @Suppress("UNCHECKED_CAST")

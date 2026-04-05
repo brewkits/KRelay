@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.1] - 2026-04-06
+
+### Added
+- **Hardened Concurrency Safety**: Persisted dispatch is now fully atomic. The decision to enqueue (impl lookup + queue insertion) happens inside a single lock, eliminating the TOCTOU race where `register()` completing between the check and the enqueue would leave an action stranded. Persistence I/O (`save`/`remove`) is intentionally performed *outside* the lock so disk latency cannot block other threads.
+- **Compose Module** (`krelay-compose`): `KRelayEffect<T>` and `rememberKRelayImpl<T>` are now published as a standalone `dev.brewkits:krelay-compose` artifact. The module uses `api(project(":krelay"))` so all core types are automatically visible to consumers.
+- **Enhanced iOS Registration Safety**: `registerFeature` helper now validates at runtime that the provided implementation conforms to the target interface, crashing early in debug mode and logging a clear warning in release mode. Prevents silent failures from KClass mismatches.
+- **ProGuard/R8-safe Persistence API**: `registerActionFactory` and `dispatchPersisted` now require an explicit stable `featureKey: String`. Class simple names can be obfuscated by R8; explicit keys survive minification. Old overloads deprecated with `replaceWith` guidance.
+- **Testability via `KRelayInstance` interface**: Persistence and dispatch methods are now declared on the `KRelayInstance` interface, allowing test doubles to implement it directly without casting to `KRelayInstanceImpl`.
+- **Binary Compatibility**: Compiled with **Kotlin 2.1.0 (Stable)** for maximum consumer compatibility.
+
+### Fixed
+- **Thread-safe `KRelayMetrics`**: All `record*`, `get*`, and `getAllMetrics()` operations are now protected by an internal lock, preventing data races in concurrent apps.
+- **`getMetricsInternal` stub**: iOS Swift interop helper now returns real metrics from `KRelayMetrics` instead of an empty map.
+- **Priority Eviction Logic**: When the queue is full, KRelay now evicts the **lowest-priority** action (not just the oldest FIFO action), correctly honouring the `ActionPriority` attribute.
+- **Compose overwrite warning noise**: `register()` now only logs the overwrite warning when the incoming implementation is a *different class* from the existing one. Same-class replacements (e.g. Activity recreated by the Compose lifecycle) are expected and are no longer logged.
+- **`restorePersistedActions` I/O inside lock**: Persistence I/O (`loadAll`/`remove`) is now performed outside the instance lock; all in-memory mutations happen in a single `lock.withLock` block. This removes the risk of disk latency blocking the dispatch path.
+- **Identity-aware `unregister`**: Passing an `impl` to `unregister()` now only removes the registration if the stored reference is the same object, preventing a recomposing Compose screen from accidentally clearing a newer registration.
+- **`VoyagerDemo` GC bug**: `VoyagerNavigationImpl` is now held by `remember(navigator)` outside the `DisposableEffect`, preventing the Kotlin/Native GC from reclaiming it before the first dispatch.
+
+---
+
 ## [2.1.0] - 2026-03-16
 
 ### Added

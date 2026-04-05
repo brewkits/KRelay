@@ -6,6 +6,11 @@ package dev.brewkits.krelay
  * Unlike [QueuedAction] (which holds a lambda), this is a serializable record
  * containing an [actionKey] and [payload] string. A registered [ActionFactory]
  * reconstructs the actual action lambda when needed.
+ *
+ * ⚠️ **NOTE ON SYSTEM TIME**: [timestampMs] is based on [currentTimeMillis].
+ * If the user changes their system time (e.g., timezone hacks), actions may
+ * expire prematurely or persist indefinitely. For critical operations, ensure
+ * clock drift is acceptable for your use case.
  */
 data class PersistedCommand(
     val actionKey: String,

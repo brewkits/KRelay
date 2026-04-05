@@ -18,12 +18,11 @@ class KRelayBuilder internal constructor(
     private val instanceRegistryLock: Lock
 ) {
     init {
-        // Validate scope name (v2.0.1)
         require(scopeName.isNotBlank()) { "scopeName must not be blank" }
     }
 
     private var maxQueueSize: Int = 100
-    private var actionExpiryMs: Long = 5 * 60 * 1000
+    private var actionExpiryMs: Long = 60_000
     private var debugMode: Boolean = false
 
     /**
@@ -42,7 +41,7 @@ class KRelayBuilder internal constructor(
 
     /**
      * Sets action expiry time in milliseconds.
-     * Default: 5 minutes (300,000ms)
+     * Default: 60,000ms (1 minute)
      *
      * @param ms Expiry time in milliseconds (must be > 0)
      * @return This builder for chaining
@@ -82,7 +81,6 @@ class KRelayBuilder internal constructor(
      * @return Configured KRelayInstance
      */
     fun build(): KRelayInstance {
-        // Check for duplicate scope name (v2.0.1)
         instanceRegistryLock.withLock {
             if (debugMode && scopeName in instanceRegistry) {
                 println("⚠️ [KRelay] Instance with scope '$scopeName' already exists. " +
