@@ -10,8 +10,11 @@ import kotlin.reflect.KClass
  * - Queue statistics
  * - Replay performance
  * - Expiry events
+ *
+ * Thread-safe: all read/write operations are protected by an internal lock.
  */
 object KRelayMetrics {
+    private val metricsLock = Lock()
     private val dispatchCounts = mutableMapOf<KClass<*>, Long>()
     private val queueCounts = mutableMapOf<KClass<*>, Long>()
     private val replayCounts = mutableMapOf<KClass<*>, Long>()
@@ -33,7 +36,9 @@ object KRelayMetrics {
      */
     internal fun recordDispatch(kClass: KClass<*>) {
         if (!enabled) return
-        dispatchCounts[kClass] = (dispatchCounts[kClass] ?: 0) + 1
+        metricsLock.withLock {
+            dispatchCounts[kClass] = (dispatchCounts[kClass] ?: 0) + 1
+        }
     }
 
     /**
@@ -41,7 +46,9 @@ object KRelayMetrics {
      */
     internal fun recordQueue(kClass: KClass<*>) {
         if (!enabled) return
-        queueCounts[kClass] = (queueCounts[kClass] ?: 0) + 1
+        metricsLock.withLock {
+            queueCounts[kClass] = (queueCounts[kClass] ?: 0) + 1
+        }
     }
 
     /**
@@ -49,7 +56,9 @@ object KRelayMetrics {
      */
     internal fun recordReplay(kClass: KClass<*>, count: Int) {
         if (!enabled) return
-        replayCounts[kClass] = (replayCounts[kClass] ?: 0) + count
+        metricsLock.withLock {
+            replayCounts[kClass] = (replayCounts[kClass] ?: 0) + count
+        }
     }
 
     /**
@@ -57,42 +66,45 @@ object KRelayMetrics {
      */
     internal fun recordExpiry(kClass: KClass<*>, count: Int) {
         if (!enabled) return
-        expiryCounts[kClass] = (expiryCounts[kClass] ?: 0) + count
+        metricsLock.withLock {
+            expiryCounts[kClass] = (expiryCounts[kClass] ?: 0) + count
+        }
     }
 
     /**
      * Gets total dispatch count for a feature.
      */
-    fun getDispatchCount(kClass: KClass<*>): Long = dispatchCounts[kClass] ?: 0
+    fun getDispatchCount(kClass: KClass<*>): Long = metricsLock.withLock { dispatchCounts[kClass] ?: 0 }
 
     /**
      * Gets total queue count for a feature.
      */
-    fun getQueueCount(kClass: KClass<*>): Long = queueCounts[kClass] ?: 0
+    fun getQueueCount(kClass: KClass<*>): Long = metricsLock.withLock { queueCounts[kClass] ?: 0 }
 
     /**
      * Gets total replay count for a feature.
      */
-    fun getReplayCount(kClass: KClass<*>): Long = replayCounts[kClass] ?: 0
+    fun getReplayCount(kClass: KClass<*>): Long = metricsLock.withLock { replayCounts[kClass] ?: 0 }
 
     /**
      * Gets total expiry count for a feature.
      */
-    fun getExpiryCount(kClass: KClass<*>): Long = expiryCounts[kClass] ?: 0
+    fun getExpiryCount(kClass: KClass<*>): Long = metricsLock.withLock { expiryCounts[kClass] ?: 0 }
 
     /**
      * Gets all metrics as a summary map.
      */
     fun getAllMetrics(): Map<String, Map<String, Long>> {
-        val allKeys = (dispatchCounts.keys + queueCounts.keys + replayCounts.keys + expiryCounts.keys).distinct()
-
-        return allKeys.associate { kClass ->
-            kClass.simpleName.orEmpty() to mapOf(
-                "dispatches" to getDispatchCount(kClass),
-                "queued" to getQueueCount(kClass),
-                "replayed" to getReplayCount(kClass),
-                "expired" to getExpiryCount(kClass)
-            )
+        return metricsLock.withLock {
+            val allKeys = (dispatchCounts.keys + queueCounts.keys + replayCounts.keys + expiryCounts.keys).distinct()
+            allKeys.associate { kClass ->
+                kClass.simpleName.orEmpty() to mapOf(
+                    "dispatches" to (dispatchCounts[kClass] ?: 0),
+                    "queued" to (queueCounts[kClass] ?: 0),
+                    "replayed" to (replayCounts[kClass] ?: 0),
+                    "expired" to (expiryCounts[kClass] ?: 0)
+                )
+            }
         }
     }
 
@@ -124,10 +136,12 @@ object KRelayMetrics {
      * Resets all metrics.
      */
     fun reset() {
-        dispatchCounts.clear()
-        queueCounts.clear()
-        replayCounts.clear()
-        expiryCounts.clear()
+        metricsLock.withLock {
+            dispatchCounts.clear()
+            queueCounts.clear()
+            replayCounts.clear()
+            expiryCounts.clear()
+        }
     }
 }
 

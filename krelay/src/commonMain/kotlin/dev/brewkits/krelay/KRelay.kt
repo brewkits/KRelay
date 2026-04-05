@@ -3,75 +3,54 @@ package dev.brewkits.krelay
 import kotlin.reflect.KClass
 
 /**
- * KRelay: The Native Interop Bridge for KMP
+ * KRelay: The Native Interop Bridge for Kotlin Multiplatform.
  *
- * Core singleton that manages:
- * 1. Safe Dispatch: Automatically switches to main thread
- * 2. Weak Registry: Holds platform implementations without memory leaks
- * 3. Sticky Queue: Queues actions when UI is not ready, replays when it becomes available
+ * This singleton provides a safe, type-safe way to communicate from shared business logic 
+ * (ViewModels, UseCases) to platform-specific UI components (Activity, ViewController, Composable).
  *
- * ## v2.0 Update: Singleton + Instance API
+ * ## Core Pillars
+ * 1. **Thread Safety**: Automatically dispatches all actions to the platform's Main/UI thread.
+ * 2. **Memory Safety**: Uses `WeakReference` to hold platform implementations, preventing leaks.
+ * 3. **Reliability**: Features a "Sticky Queue" that holds actions when the UI is not ready
+ *    (e.g., during screen rotation or backgrounding) and replays them when the UI attaches.
+ * 4. **Persistence**: Supports surviving process death for critical UI feedback.
  *
- * **Singleton API** (v1.0 - fully backward compatible):
+ * ## Usage Patterns
+ *
+ * ### 1. Singleton API (Recommended for small/medium apps)
  * ```kotlin
- * KRelay.register<ToastFeature>(impl)
- * KRelay.dispatch<ToastFeature> { it.show("Hello") }
- * ```
- *
- * **Instance API** (v2.0 - for Super Apps):
- * ```kotlin
- * val rideKRelay = KRelay.create("RideModule")
- * rideKRelay.register<ToastFeature>(impl)
- * // Note: register/dispatch on instance require inline wrapper
- * ```
- *
- * See [KRelayInstance] for when to use instances vs singleton.
- *
- * ## ⚠️ CRITICAL WARNINGS
- *
- * ### 1. Process Death: Queue is NOT Persistent
- * Lambda functions in the queue **cannot survive process death** (OS kills your app).
- * - ✅ **Safe**: Toast, Navigation, Haptics (UI feedback)
- * - ❌ **NEVER**: Payments, File Uploads, Critical Analytics
- * - 🔧 **Use Instead**: WorkManager for guaranteed execution
- *
- * ### 2. Singleton in Super Apps (v2.0 Solution Available)
- * Global singleton may conflict in apps with multiple independent modules.
- * - ✅ **Safe**: Single-module apps, small-medium projects
- * - ⚠️ **v1.0 Workaround**: Feature Namespacing (e.g., RideModuleToastFeature)
- * - ✅ **v2.0 Solution**: Use `KRelay.create("ModuleName")` for isolated instances
- *
- * See @ProcessDeathUnsafe and @SuperAppWarning for detailed guidance.
- *
- * Usage:
- * ```kotlin
- * // In shared code (ViewModel, UseCase, etc.)
- * @OptIn(ProcessDeathUnsafe::class, SuperAppWarning::class)
+ * // Platform code
+ * KRelay.register<ToastFeature>(this)
+ * 
+ * // Shared code
  * KRelay.dispatch<ToastFeature> { it.show("Hello!") }
- *
- * // In platform code (Activity, ViewController)
- * @OptIn(ProcessDeathUnsafe::class, SuperAppWarning::class)
- * KRelay.register(this as ToastFeature)
  * ```
+ *
+ * ### 2. Instance API (Recommended for Super Apps/Modular projects)
+ * ```kotlin
+ * val paymentRelay = KRelay.create("PaymentModule")
+ * paymentRelay.register<PaymentFeature>(impl)
+ * ```
+ *
+ * @see KRelayInstance for isolated instance documentation.
+ * @see ProcessDeathUnsafe for important safety guidelines.
  */
 @SuperAppWarning
 object KRelay {
     /**
-     * Default instance used by singleton API (internal).
-     * All singleton methods delegate to this instance.
+     * Internal backing instance for the singleton API.
      */
     @PublishedApi
     internal val defaultInstance = KRelayInstanceImpl(
         scopeName = "__DEFAULT__",
         maxQueueSize = 100,
-        actionExpiryMs = 5 * 60 * 1000,
+        actionExpiryMs = 300_000, // 5 minutes
         debugMode = false
     )
 
     /**
-     * The default [KRelayInstance] backing this singleton.
-     * Use this when an API requires a [KRelayInstance] reference and you want
-     * to target the global singleton (e.g., Compose integrations, DI bindings).
+     * The underlying [KRelayInstance] used by this singleton.
+     * Useful for dependency injection or framework integrations (like Compose).
      */
     val instance: KRelayInstance get() = defaultInstance
 
@@ -80,31 +59,28 @@ object KRelay {
     // ============================================================
 
     /**
-     * Thread-safe lock for all operations.
-     * Exposed for backward compatibility with existing code.
+     * The internal lock protecting the registry and queue.
      */
     @PublishedApi
     internal val lock: Lock
         get() = defaultInstance.lock
 
     /**
-     * Registry: KClass -> WeakRef to platform implementation.
-     * Exposed for backward compatibility with existing code.
+     * Current mapping of Feature Class to its platform implementation.
      */
     @PublishedApi
     internal val registry: MutableMap<KClass<*>, WeakRef<Any>>
         get() = defaultInstance.registry
 
     /**
-     * Sticky Queue: KClass -> List of pending actions with timestamps.
-     * Exposed for backward compatibility with existing code.
+     * The current queue of pending actions awaiting a registered implementation.
      */
     @PublishedApi
     internal val pendingQueue: MutableMap<KClass<*>, MutableList<QueuedAction>>
         get() = defaultInstance.pendingQueue
 
     /**
-     * Queue configuration: Maximum actions per feature type.
+     * Global configuration: Maximum pending actions allowed per feature type.
      * Default: 100
      */
     var maxQueueSize: Int
@@ -114,8 +90,8 @@ object KRelay {
         }
 
     /**
-     * Queue configuration: Action expiry time in milliseconds.
-     * Default: 5 minutes (300,000ms)
+     * Global configuration: How long an action remains in the queue before being discarded.
+     * Default: 300,000ms (5 minutes)
      */
     var actionExpiryMs: Long
         get() = defaultInstance.actionExpiryMs
@@ -124,7 +100,7 @@ object KRelay {
         }
 
     /**
-     * Debug mode flag.
+     * Global configuration: Enables verbose logging of KRelay internal events.
      * Default: false
      */
     var debugMode: Boolean
@@ -134,72 +110,38 @@ object KRelay {
         }
 
     /**
-     * Registers a platform implementation for a feature.
-     *
-     * This should be called from platform code (Activity onCreate, ViewController init, etc.)
-     * When registered, any pending actions in the queue will be immediately replayed.
-     *
-     * ⚠️ **IMPORTANT**: Queued actions are lost on process death (OS kills app).
-     * See @ProcessDeathUnsafe for safe vs dangerous use cases.
-     *
-     * @param impl The platform implementation of a RelayFeature
+     * Registers a platform-specific implementation for feature [T].
+     * 
+     * Any actions currently in the queue for this feature will be replayed immediately.
+     * 
+     * @param impl The implementation of the [RelayFeature] interface.
      */
     @ProcessDeathUnsafe
     inline fun <reified T : RelayFeature> register(impl: T) {
-        defaultInstance.registerInternal(T::class, impl)
+        defaultInstance.register(T::class, impl)
     }
 
     /**
-     * Dispatches an action to the platform implementation.
-     *
-     * Thread Safety: Automatically switches to main thread before executing.
-     * Memory Safety: Uses weak references to prevent memory leaks.
-     * Reliability: Queues action if implementation is not available yet.
-     * Queue Management: Enforces size limits and expires old actions.
-     *
-     * ⚠️ **CRITICAL WARNING 1**: Queue is lost on process death (OS kills app).
-     * ⚠️ **CRITICAL WARNING 2**: Lambda captures can cause memory leaks.
-     *
-     * ## Process Death Risk
-     * See @ProcessDeathUnsafe for safe vs dangerous use cases.
-     *
-     * **Safe Use Cases (UI feedback - acceptable to lose):**
-     * - Toast/Snackbar notifications
-     * - Navigation commands
-     * - Haptic feedback / Vibration
-     * - Permission requests
-     * - In-app notifications
-     *
-     * **DANGEROUS Use Cases (NEVER use KRelay for these):**
-     * - Banking/Payment transactions → Use WorkManager
-     * - File uploads → Use UploadWorker
-     * - Critical analytics → Use persistent queue
-     * - Database writes → Use Room/SQLite directly
-     *
-     * ## Memory Leak Risk
-     * See @MemoryLeakWarning for lambda capture best practices.
-     *
-     * **TL;DR Safe Pattern**:
-     * ```kotlin
-     * // ✅ Good: Capture primitives only
-     * val message = viewModel.data
-     * KRelay.dispatch<ToastFeature> { it.show(message) }
-     *
-     * // ❌ Bad: Captures entire ViewModel
-     * KRelay.dispatch<ToastFeature> { it.show(viewModel.data) }
-     * ```
-     *
-     * @param block The action to execute on the platform implementation
+     * Dispatches an action to the registered implementation of feature [T].
+     * 
+     * If the implementation is missing or has been garbage collected, the action
+     * is added to the "Sticky Queue".
+     * 
+     * @param block The lambda to execute on the platform implementation.
      */
     @ProcessDeathUnsafe
     @MemoryLeakWarning
     inline fun <reified T : RelayFeature> dispatch(noinline block: (T) -> Unit) {
-        defaultInstance.dispatchInternal(T::class, block)
+        defaultInstance.dispatch(T::class, block)
     }
 
     /**
-     * Dispatches an action tagged with a [scopeToken] on the default singleton instance.
-     * See [KRelayInstance.dispatch] for full documentation.
+     * Dispatches an action tagged with a [scopeToken].
+     * 
+     * Tagged actions can be cancelled in bulk using [cancelScope].
+     * 
+     * @param scopeToken A unique identifier for the caller (e.g., from [scopedToken]).
+     * @param block The lambda to execute.
      */
     @ProcessDeathUnsafe
     @MemoryLeakWarning
@@ -207,223 +149,185 @@ object KRelay {
         scopeToken: String,
         noinline block: (T) -> Unit
     ) {
-        defaultInstance.dispatchInternal(T::class, block, scopeToken)
+        defaultInstance.dispatch(T::class, block, scopeToken)
     }
 
     /**
-     * Cancels all queued actions tagged with [token] on the default singleton instance.
-     * See [KRelayInstance.cancelScope] for full documentation.
+     * Cancels all queued actions that match the provided [token].
      */
     fun cancelScope(token: String) {
         defaultInstance.cancelScope(token)
     }
 
     /**
-     * Unregisters an implementation.
+     * Removes the registration for feature [T].
      *
-     * Usually not needed as WeakRef will be cleared automatically when the object is GC'd.
-     * However, can be useful for explicit cleanup in some scenarios.
+     * @param impl Optional identity check. If provided, unregisters only if the current
+     *   registration is the same object as [impl]. Useful in Compose to prevent an older
+     *   component from clearing a newer registration set during recomposition.
+     *   Pass `null` (or omit) to unconditionally remove the registration.
      */
-    inline fun <reified T : RelayFeature> unregister() {
-        defaultInstance.unregisterInternal(T::class)
+    inline fun <reified T : RelayFeature> unregister(impl: T? = null) {
+        defaultInstance.unregister(T::class, impl)
     }
 
     /**
-     * Clears the pending queue for a specific feature type.
-     *
-     * **IMPORTANT**: Use this to prevent Lambda Capture Leaks.
-     *
-     * ### Problem:
-     * When you queue an action like:
-     * ```kotlin
-     * KRelay.dispatch<ToastFeature> { it.show(viewModel.data) }
-     * ```
-     * The lambda captures `viewModel` and any surrounding context.
-     * If the queue holds this lambda for too long (e.g., user backgrounds the app
-     * and never returns to that screen), it causes a memory leak.
-     *
-     * ### Solution:
-     * Call this in ViewModel's `onCleared()` to explicitly release queued lambdas:
-     * ```kotlin
-     * override fun onCleared() {
-     *     super.onCleared()
-     *     KRelay.clearQueue<ToastFeature>()
-     * }
-     * ```
-     *
-     * **Note**: Actions already have an expiry time (`actionExpiryMs`), but this
-     * provides manual control for immediate cleanup.
+     * Clears all pending actions for feature [T].
+     * 
+     * Highly recommended to call this in `ViewModel.onCleared()` if you are not using scope tokens.
      */
     inline fun <reified T : RelayFeature> clearQueue() {
-        defaultInstance.clearQueueInternal(T::class)
+        defaultInstance.clearQueue(T::class)
     }
 
     /**
-     * Checks if an implementation is currently registered and alive.
+     * Returns true if feature [T] has an active implementation registered.
      */
     inline fun <reified T : RelayFeature> isRegistered(): Boolean {
-        return defaultInstance.isRegisteredInternal(T::class)
+        return defaultInstance.isRegistered(T::class)
     }
 
     /**
-     * Gets the number of pending actions for a feature type.
-     * Automatically removes expired actions before counting.
+     * Returns the current number of pending actions for feature [T].
      */
     inline fun <reified T : RelayFeature> getPendingCount(): Int {
-        return defaultInstance.getPendingCountInternal(T::class)
+        return defaultInstance.getPendingCount(T::class)
     }
 
     /**
-     * Gets the number of currently registered features.
-     * Only counts features with alive implementations (not GC'd).
+     * Returns the count of unique features currently registered in the global singleton.
      */
     fun getRegisteredFeaturesCount(): Int = defaultInstance.getRegisteredFeaturesCount()
 
     /**
-     * Gets the total number of pending actions across all features.
-     * Automatically removes expired actions before counting.
+     * Returns the total count of pending actions across all features in the global singleton.
      */
     fun getTotalPendingCount(): Int = defaultInstance.getTotalPendingCount()
 
     /**
-     * Gets detailed debug information about KRelay's current state.
-     *
-     * @return DebugInfo object containing:
-     *   - Number of registered features
-     *   - List of registered feature names
-     *   - Pending actions per feature
-     *   - Total pending actions
-     *   - Configuration settings
+     * Returns a debug snapshot of the global singleton state.
      */
     fun getDebugInfo(): DebugInfo = defaultInstance.getDebugInfo()
 
     /**
-     * Dumps KRelay's current state to console for debugging.
-     *
-     * Output includes:
-     * - Number of registered features and their names
-     * - Pending actions per feature
-     * - Total pending actions
-     * - Configuration settings
-     *
-     * Example output:
-     * ```
-     * === KRelay Debug Dump ===
-     * Registered Features: 3
-     *   - ToastFeature (alive)
-     *   - NavigationFeature (alive)
-     *   - PermissionFeature (alive)
-     *
-     * Pending Actions by Feature:
-     *   - ToastFeature: 2 events
-     *   - PermissionFeature: 5 events
-     *
-     * Total Pending: 7 events
-     * Expired & Removed: 2 events
-     *
-     * Configuration:
-     *   - Max Queue Size: 100
-     *   - Action Expiry: 300000ms (5.0 min)
-     *   - Debug Mode: true
-     * ========================
-     * ```
+     * Dumps the global singleton state to the console.
      */
     fun dump() = defaultInstance.dump()
 
     /**
-     * Resets configuration to defaults (maxQueueSize=100, actionExpiryMs=300000, debugMode=false).
-     * Does **not** clear the registry or pending queue — use [reset] for a full wipe.
+     * Resets configurations to their default values.
      */
     fun resetConfiguration() = defaultInstance.resetConfiguration()
 
     /**
-     * Clears all registrations and pending queues.
-     * Useful for testing or complete reset scenarios.
-     * Thread-safe operation.
+     * Resets the entire KRelay singleton state (clears all registrations and queues).
      */
     fun reset() = defaultInstance.reset()
 
     /**
-     * Internal logging function.
-     * Exposed for backward compatibility.
+     * Logs a message to the console if [debugMode] is enabled.
      */
     @PublishedApi
     internal fun log(message: String) = defaultInstance.log(message)
 
     /**
-     * Internal registration logic.
-     * Exposed for backward compatibility with inline functions.
+     * Internal registration helper.
      */
     @PublishedApi
     internal fun <T : RelayFeature> registerInternal(kClass: KClass<T>, impl: T) {
-        defaultInstance.registerInternal(kClass, impl)
+        defaultInstance.register(kClass, impl)
     }
 
     /**
-     * Internal unregister logic.
-     * Exposed for backward compatibility with inline functions.
+     * Internal unregistration helper.
      */
     @PublishedApi
     internal fun <T : RelayFeature> unregisterInternal(kClass: KClass<T>) {
-        defaultInstance.unregisterInternal(kClass)
+        defaultInstance.unregister(kClass)
     }
 
     /**
-     * Internal clear queue logic.
-     * Exposed for backward compatibility with inline functions.
+     * Internal dispatch helper for iOS Swift interop.
+     */
+    @PublishedApi
+    internal fun <T : RelayFeature> dispatchInternal(
+        kClass: KClass<T>,
+        block: (T) -> Unit
+    ) {
+        defaultInstance.dispatch(kClass, block)
+    }
+
+    /**
+     * Internal dispatch with priority helper for iOS Swift interop.
+     */
+    @PublishedApi
+    internal fun <T : RelayFeature> dispatchWithPriorityInternal(
+        kClass: KClass<T>,
+        priority: ActionPriority,
+        block: (T) -> Unit
+    ) {
+        if (defaultInstance is KRelayInstanceImpl) {
+            defaultInstance.dispatchWithPriorityInternal(kClass, priority.value, block)
+        }
+    }
+
+    /**
+     * Internal isRegistered helper for iOS Swift interop.
+     */
+    @PublishedApi
+    internal fun <T : RelayFeature> isRegisteredInternal(kClass: KClass<T>): Boolean {
+        return defaultInstance.isRegistered(kClass)
+    }
+
+    /**
+     * Internal getPendingCount helper for iOS Swift interop.
+     */
+    @PublishedApi
+    internal fun <T : RelayFeature> getPendingCountInternal(kClass: KClass<T>): Int {
+        return defaultInstance.getPendingCount(kClass)
+    }
+
+    /**
+     * Internal getMetrics helper for iOS Swift interop.
+     */
+    @PublishedApi
+    internal fun <T : RelayFeature> getMetricsInternal(kClass: KClass<T>): Map<String, Long> {
+        return mapOf(
+            "dispatches" to KRelayMetrics.getDispatchCount(kClass),
+            "queued"     to KRelayMetrics.getQueueCount(kClass),
+            "replayed"   to KRelayMetrics.getReplayCount(kClass),
+            "expired"    to KRelayMetrics.getExpiryCount(kClass)
+        )
+    }
+
+    /**
+     * Internal queue clearing helper.
      */
     @PublishedApi
     internal fun <T : RelayFeature> clearQueueInternal(kClass: KClass<T>) {
-        defaultInstance.clearQueueInternal(kClass)
+        defaultInstance.clearQueue(kClass)
     }
 
     // ============================================================
     // INSTANCE API (v2.0 - NEW)
     // ============================================================
 
-    /**
-     * Registry of created instance scope names for duplicate detection.
-     * Thread-safe access via instanceRegistryLock.
-     */
     private val instanceRegistry = mutableSetOf<String>()
     private val instanceRegistryLock = Lock()
 
     /**
-     * Creates a new KRelay instance with the given scope name.
+     * Creates a new [KRelayInstance] with an isolated registry and queue.
      *
-     * **Use Cases**:
-     * - Super Apps with independent modules
-     * - Multi-team projects requiring isolation
-     * - Dependency Injection architectures
-     *
-     * **Example**:
-     * ```kotlin
-     * val rideKRelay = KRelay.create("RideModule")
-     * val foodKRelay = KRelay.create("FoodModule")
-     * // Each module has isolated registry
-     * ```
-     *
-     * **Duplicate Scope Name Warning** (v2.0.1):
-     * If `debugMode` is enabled and an instance with the same scope name already exists,
-     * a warning will be logged. While technically allowed, duplicate scope names can
-     * make debug logs confusing.
-     *
-     * **Note**: Instance methods like `register()` and `dispatch()` are not reified,
-     * so you'll need to use extension functions or wrappers for type-safe calls.
-     *
-     * @param scopeName Unique identifier for this instance (used in debug logs, must not be blank)
-     * @return New KRelayInstance with default configuration
-     * @throws IllegalArgumentException if scopeName is blank
+     * @param scopeName A unique name for this module or scope.
+     * @return A configured [KRelayInstance].
+     * @throws IllegalArgumentException if [scopeName] is blank.
      */
     fun create(scopeName: String): KRelayInstance {
-        // Validate scope name (v2.0.1)
         require(scopeName.isNotBlank()) { "scopeName must not be blank" }
 
-        // Check for duplicate scope name (v2.0.1)
         instanceRegistryLock.withLock {
             if (debugMode && scopeName in instanceRegistry) {
-                log("⚠️ [KRelay] Instance with scope '$scopeName' already exists. " +
-                    "Consider using unique names to avoid confusion in debug logs.")
+                log("⚠️ [KRelay] Instance with scope '$scopeName' already exists.")
             }
             instanceRegistry.add(scopeName)
         }
@@ -432,28 +336,14 @@ object KRelay {
     }
 
     /**
-     * Creates a builder for configuring a KRelay instance.
-     *
-     * **Example**:
-     * ```kotlin
-     * val instance = KRelay.builder("MyModule")
-     *     .maxQueueSize(50)
-     *     .actionExpiry(60_000L)
-     *     .debugMode(true)
-     *     .build()
-     * ```
-     *
-     * **Duplicate Scope Name Warning** (v2.0.1):
-     * If `debugMode` is enabled and an instance with the same scope name already exists,
-     * a warning will be logged when `build()` is called.
+     * Returns a [KRelayBuilder] to create a customized [KRelayInstance].
      */
     fun builder(scopeName: String): KRelayBuilder {
         return KRelayBuilder(scopeName, instanceRegistry, instanceRegistryLock)
     }
 
     /**
-     * Clears the instance registry.
-     * Internal method for testing purposes only.
+     * Internal test utility.
      */
     @PublishedApi
     internal fun clearInstanceRegistry() {
@@ -468,67 +358,24 @@ object KRelay {
 // ============================================================
 
 /**
- * Type-safe register for KRelayInstance.
- *
- * Usage:
- * ```kotlin
- * val instance = KRelay.create("MyModule")
- * instance.register<ToastFeature>(myImpl)
- * ```
+ * Type-safe register for [KRelayInstance].
  */
 @ProcessDeathUnsafe
 inline fun <reified T : RelayFeature> KRelayInstance.register(impl: T) {
-    if (this is KRelayInstanceImpl) {
-        this.registerInternal(T::class, impl)
-    } else {
-        throw UnsupportedOperationException("Custom KRelayInstance implementations must override register()")
-    }
+    this.register(T::class, impl)
 }
 
 /**
- * Type-safe dispatch for KRelayInstance.
- *
- * Usage:
- * ```kotlin
- * val instance = KRelay.create("MyModule")
- * instance.dispatch<ToastFeature> { it.show("Hello") }
- * ```
+ * Type-safe dispatch for [KRelayInstance].
  */
 @ProcessDeathUnsafe
 @MemoryLeakWarning
 inline fun <reified T : RelayFeature> KRelayInstance.dispatch(noinline block: (T) -> Unit) {
-    if (this is KRelayInstanceImpl) {
-        this.dispatchInternal(T::class, block)
-    } else {
-        throw UnsupportedOperationException("Custom KRelayInstance implementations must override dispatch()")
-    }
+    this.dispatch(T::class, block)
 }
 
 /**
- * Dispatches an action tagged with a [scopeToken].
- *
- * If the implementation is alive the action executes immediately (token is ignored).
- * If the action is queued, it is tagged so that [KRelayInstance.cancelScope] can
- * selectively remove it without touching other queued actions for the same feature.
- *
- * ## Typical usage in ViewModel
- * ```kotlin
- * class OrderViewModel(private val relay: KRelayInstance) : ViewModel() {
- *     private val token = scopedToken()
- *
- *     fun placeOrder() {
- *         relay.dispatch<ToastFeature>(token) { it.show("Order placed!") }
- *         relay.dispatch<NavFeature>(token) { it.navigateTo("confirmation") }
- *     }
- *
- *     override fun onCleared() {
- *         relay.cancelScope(token)   // releases lambda captures automatically
- *     }
- * }
- * ```
- *
- * @param scopeToken An identifier for the caller. Use [scopedToken] to generate one.
- * @param block      The action to execute on the platform implementation.
+ * Type-safe dispatch with scope token for [KRelayInstance].
  */
 @ProcessDeathUnsafe
 @MemoryLeakWarning
@@ -536,55 +383,35 @@ inline fun <reified T : RelayFeature> KRelayInstance.dispatch(
     scopeToken: String,
     noinline block: (T) -> Unit
 ) {
-    if (this is KRelayInstanceImpl) {
-        this.dispatchInternal(T::class, block, scopeToken)
-    } else {
-        throw UnsupportedOperationException("Custom KRelayInstance implementations must override dispatch()")
-    }
+    this.dispatch(T::class, block, scopeToken)
 }
 
 /**
- * Type-safe unregister for KRelayInstance.
+ * Type-safe unregister for [KRelayInstance].
  */
-inline fun <reified T : RelayFeature> KRelayInstance.unregister() {
-    if (this is KRelayInstanceImpl) {
-        this.unregisterInternal(T::class)
-    } else {
-        throw UnsupportedOperationException("Custom KRelayInstance implementations must override unregister()")
-    }
+inline fun <reified T : RelayFeature> KRelayInstance.unregister(impl: T? = null) {
+    this.unregister(T::class, impl)
 }
 
 /**
- * Type-safe isRegistered for KRelayInstance.
+ * Type-safe check for registration in [KRelayInstance].
  */
 inline fun <reified T : RelayFeature> KRelayInstance.isRegistered(): Boolean {
-    return if (this is KRelayInstanceImpl) {
-        this.isRegisteredInternal(T::class)
-    } else {
-        throw UnsupportedOperationException("Custom KRelayInstance implementations must override isRegistered()")
-    }
+    return this.isRegistered(T::class)
 }
 
 /**
- * Type-safe getPendingCount for KRelayInstance.
+ * Type-safe pending count check for [KRelayInstance].
  */
 inline fun <reified T : RelayFeature> KRelayInstance.getPendingCount(): Int {
-    return if (this is KRelayInstanceImpl) {
-        this.getPendingCountInternal(T::class)
-    } else {
-        throw UnsupportedOperationException("Custom KRelayInstance implementations must override getPendingCount()")
-    }
+    return this.getPendingCount(T::class)
 }
 
 /**
- * Type-safe clearQueue for KRelayInstance.
+ * Type-safe queue clearing for [KRelayInstance].
  */
 inline fun <reified T : RelayFeature> KRelayInstance.clearQueue() {
-    if (this is KRelayInstanceImpl) {
-        this.clearQueueInternal(T::class)
-    } else {
-        throw UnsupportedOperationException("Custom KRelayInstance implementations must override clearQueue()")
-    }
+    this.clearQueue(T::class)
 }
 
 // ============================================================
@@ -592,24 +419,8 @@ inline fun <reified T : RelayFeature> KRelayInstance.clearQueue() {
 // ============================================================
 
 /**
- * Generates a unique token to tag dispatch calls from a specific scope.
- *
- * Use this in ViewModels (or any long-lived caller) to identify their dispatches,
- * then call [KRelayInstance.cancelScope] with the same token on destruction.
- *
- * ```kotlin
- * class HomeViewModel(private val relay: KRelayInstance) : ViewModel() {
- *     private val token = scopedToken()
- *
- *     fun onEvent() {
- *         relay.dispatch<ToastFeature>(token) { it.show("Done") }
- *     }
- *
- *     override fun onCleared() = relay.cancelScope(token)
- * }
- * ```
- *
- * Each call returns a distinct token. The token is human-readable for easier
- * debugging (contains the timestamp it was created).
+ * Generates a globally unique token for tagging dispatches within a specific scope (e.g., a ViewModel).
+ * 
+ * Using tokens allows for surgical cleanup of the sticky queue when a component is destroyed.
  */
 fun scopedToken(): String = "krelay-${currentTimeMillis()}-${kotlin.random.Random.nextInt(Int.MAX_VALUE)}"

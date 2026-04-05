@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F57C00"/>
+      <stop offset="100%" stop-color="#BF360C"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect width="96" height="96" rx="20" ry="20" fill="url(#g)"/>
+
+  <!-- K — vertical bar -->
+  <rect x="14" y="18" width="8" height="60" rx="3" fill="white"/>
+
+  <!-- K — upper arm (centre-left → top-right) -->
+  <line x1="22" y1="48" x2="65" y2="18" stroke="white" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- K — lower arm (centre-left → bottom-right) -->
+  <line x1="22" y1="48" x2="65" y2="78" stroke="white" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Relay accent — amber dot with pulse ring -->
+  <circle cx="78" cy="78" r="5" fill="#FFE082"/>
+  <circle cx="78" cy="78" r="9" fill="none" stroke="#FFE082" stroke-width="2" opacity="0.5"/>
+</svg>

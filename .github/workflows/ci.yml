@@ -2,35 +2,39 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'feature/**', 'fix/**', 'release/**' ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 jobs:
-  test-android:
-    name: Test (Android/JVM)
-    runs-on: ubuntu-latest
 
+  # ──────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Run Android Lint (krelay)
+        run: ./gradlew :krelay:lintDebug --no-daemon
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+  # ──────────────────────────────────────────────────────────────────────────
+  test-android:
+    name: Unit Tests (JVM)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
-          gradle-version: wrapper
-
-      - name: Run Android unit tests
+          java-version: '17'
+          distribution: 'temurin'
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Run krelay unit tests
         run: ./gradlew :krelay:testDebugUnitTest --no-daemon
-
-      - name: Run common tests (JVM)
-        run: ./gradlew :krelay:jvmTest --no-daemon 2>/dev/null || ./gradlew :krelay:testReleaseUnitTest --no-daemon
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -38,27 +42,19 @@ jobs:
           name: android-test-results
           path: krelay/build/reports/tests/
 
+  # ──────────────────────────────────────────────────────────────────────────
   test-ios:
-    name: Test (iOS)
+    name: Unit Tests (iOS Simulator)
     runs-on: macos-14
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: wrapper
-
-      - name: Run iOS simulator tests
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Run krelay iOS simulator tests
         run: ./gradlew :krelay:iosSimulatorArm64Test --no-daemon
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -66,59 +62,57 @@ jobs:
           name: ios-test-results
           path: krelay/build/reports/
 
+  # ──────────────────────────────────────────────────────────────────────────
   build:
-    name: Build Library
+    name: Build (All Targets)
     runs-on: macos-14
-    needs: [ test-android ]
-
+    needs: [ lint, test-android, test-ios ]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: wrapper
-
-      - name: Build all targets
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Build krelay (all targets)
         run: ./gradlew :krelay:assemble --no-daemon
-
+      - name: Build krelay-compose (all targets)
+        run: ./gradlew :krelay-compose:assemble --no-daemon
+      - name: Build composeApp demo (Android)
+        run: ./gradlew :composeApp:assembleDebug --no-daemon
+      - name: Link iOS framework (krelay)
+        run: ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64 --no-daemon
       - name: Generate Dokka docs
-        run: ./gradlew :krelay:dokkaHtml --no-daemon
-
+        run: ./gradlew :krelay:dokkaHtmlCustom --no-daemon
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: krelay-artifacts
           path: krelay/build/outputs/
 
+  # ──────────────────────────────────────────────────────────────────────────
   publish-snapshot:
     name: Publish Snapshot
     runs-on: macos-14
     needs: [ build ]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: wrapper
-
-      - name: Publish to Maven Central Snapshots
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Publish krelay to OSSRH
         run: ./gradlew :krelay:publishAllPublicationsToOSSRHRepository --no-daemon
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        continue-on-error: true
+      - name: Publish krelay-compose to OSSRH
+        run: ./gradlew :krelay-compose:publishAllPublicationsToOSSRHRepository --no-daemon
         env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}

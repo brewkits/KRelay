@@ -46,15 +46,6 @@ import kotlin.reflect.KClass
 fun getKClass(obj: Any): KClass<*> = obj::class
 
 /**
- * Gets the KClass for a protocol/interface type (Swift metatype).
- *
- * Note: This requires the type to have at least one implementation.
- * For protocols with no instances, this cannot work due to Swift/Kotlin interop limitations.
- */
-@Suppress("UNCHECKED_CAST")
-fun <T : Any> getKClassForType(instance: T): KClass<*> = instance::class
-
-/**
  * Registers [impl] under the provided [kClass] key on the given [instance].
  *
  * This is the correct helper for **KMP apps** where Kotlin dispatches using the
@@ -81,7 +72,17 @@ fun registerFeature(
     kClass: KClass<out RelayFeature>,
     impl: RelayFeature
 ) {
-    if (instance is KRelayInstanceImpl) {
-        instance.registerInternal(kClass as KClass<RelayFeature>, impl)
+    // Validation: ensure the implementation actually matches the interface
+    if (!kClass.isInstance(impl)) {
+        val errorMsg = "❌ [KRelay] Registration error: ${impl::class.simpleName} does not implement ${kClass.simpleName}. " +
+            "Ensure you are passing the correct interface KClass."
+        if (instance.debugMode) {
+            error(errorMsg)  // crash early in debug to surface developer mistakes immediately
+        } else {
+            println("[KRelay] WARNING: $errorMsg")  // always log in release; never silently ignore
+        }
+        return
     }
+
+    instance.register(kClass as KClass<RelayFeature>, impl)
 }

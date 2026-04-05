@@ -39,17 +39,22 @@ fun VoyagerDemo(onBackClick: () -> Unit) {
 
                 val scope = rememberCoroutineScope()
 
+                // Hold a strong reference so the GC doesn't reclaim it between registration
+                // and the first dispatch. Without remember(), navImpl is a local variable that
+                // goes out of scope when the DisposableEffect setup block returns, leaving the
+                // WeakRef in KRelay's registry pointing to null before anyone calls dispatch.
+                val navImpl = remember(navigator) { VoyagerNavigationImpl(navigator, scope, onBackClick) }
+
                 // Register KRelay navigation bridge, unregister on dispose
-                DisposableEffect(navigator) {
+                DisposableEffect(navImpl) {
                     println("\n╔════════════════════════════════════════════════════════════════╗")
                     println("║  🚀 VOYAGER DEMO - KRelay Integration Setup                  ║")
                     println("╚════════════════════════════════════════════════════════════════╝")
                     println("\n🔧 [VoyagerDemo] Initializing KRelay bridge...")
-                    println("   Step 1: Creating VoyagerNavigationImpl (the bridge)")
-                    val navImpl = VoyagerNavigationImpl(navigator, scope, onBackClick)
+                    println("   Step 1: VoyagerNavigationImpl created (held by remember)")
                     println("   Step 2: Registering VoyagerNavFeature with KRelay")
                     KRelay.register<VoyagerNavFeature>(navImpl)
-                    println("   ✓ Registration complete!")
+                    println("   ✓ Registration complete! (navImpl held by remember — GC-safe)")
                     println("\n💡 HOW IT WORKS:")
                     println("   1️⃣  ViewModel calls: KRelay.dispatch<VoyagerNavFeature> { ... }")
                     println("   2️⃣  KRelay finds the registered VoyagerNavigationImpl")
@@ -62,7 +67,7 @@ fun VoyagerDemo(onBackClick: () -> Unit) {
 
                     onDispose {
                         println("🧹 [VoyagerDemo] Unregistering VoyagerNavFeature from KRelay")
-                        KRelay.unregister<VoyagerNavFeature>()
+                        KRelay.unregister<VoyagerNavFeature>(navImpl)
                     }
                 }
 

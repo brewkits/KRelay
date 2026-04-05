@@ -40,9 +40,9 @@ inline fun <reified T : RelayFeature> KRelayEffect(
     crossinline factory: () -> T
 ) {
     val impl = remember { factory() }
-    DisposableEffect(impl) {
+    DisposableEffect(impl, instance) {
         instance.register<T>(impl)
-        onDispose { instance.unregister<T>() }
+        onDispose { instance.unregister<T>(impl) }
     }
 }
 
@@ -77,9 +77,9 @@ inline fun <reified T : RelayFeature> rememberKRelayImpl(
     crossinline factory: () -> T
 ): T {
     val impl = remember { factory() }
-    DisposableEffect(impl) {
+    DisposableEffect(impl, instance) {
         instance.register<T>(impl)
-        onDispose { instance.unregister<T>() }
+        onDispose { instance.unregister<T>(impl) }
     }
     return impl
 }

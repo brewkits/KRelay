@@ -68,8 +68,8 @@ class PersistedDispatchTest {
         instance = KRelay.create("PersistTestScope")
         adapter = RecordingPersistenceAdapter()
         instance.setPersistenceAdapter(adapter)
-        instance.registerActionFactory<ToastFeature>("show") { payload -> { it.show(payload) } }
-        instance.registerActionFactory<NavFeature>("go") { payload -> { it.navigateTo(payload) } }
+        instance.registerActionFactory<ToastFeature>("toast", "show") { payload -> { it.show(payload) } }
+        instance.registerActionFactory<NavFeature>("nav", "go") { payload -> { it.navigateTo(payload) } }
     }
 
     @AfterTest
@@ -130,22 +130,22 @@ class PersistedDispatchTest {
 
     @Test
     fun testDispatchPersisted_noImpl_queuesAndPersists() {
-        instance.dispatchPersisted<ToastFeature>("show", "Hello")
+        instance.dispatchPersisted<ToastFeature>("toast", "show", "Hello")
 
         // In-memory queue
         assertEquals(1, instance.getPendingCount<ToastFeature>())
         // Persisted
         assertEquals(1, adapter.saved.size)
-        assertEquals("ToastFeature", adapter.saved[0].second)
+        assertEquals("toast", adapter.saved[0].second)
         assertEquals("show", adapter.saved[0].third.actionKey)
         assertEquals("Hello", adapter.saved[0].third.payload)
     }
 
     @Test
     fun testDispatchPersisted_multipleActions_allPersistedAndQueued() {
-        instance.dispatchPersisted<ToastFeature>("show", "msg1")
-        instance.dispatchPersisted<ToastFeature>("show", "msg2")
-        instance.dispatchPersisted<NavFeature>("go", "home")
+        instance.dispatchPersisted<ToastFeature>("toast", "show", "msg1")
+        instance.dispatchPersisted<ToastFeature>("toast", "show", "msg2")
+        instance.dispatchPersisted<NavFeature>("nav", "go", "home")
 
         assertEquals(2, instance.getPendingCount<ToastFeature>())
         assertEquals(1, instance.getPendingCount<NavFeature>())
@@ -161,7 +161,7 @@ class PersistedDispatchTest {
         val mock = MockToast()
         instance.register<ToastFeature>(mock)
 
-        instance.dispatchPersisted<ToastFeature>("show", "Immediate")
+        instance.dispatchPersisted<ToastFeature>("toast", "show", "Immediate")
 
         // Not queued, not persisted
         assertEquals(0, instance.getPendingCount<ToastFeature>())
@@ -175,7 +175,7 @@ class PersistedDispatchTest {
     @Test
     fun testRestorePersistedActions_restoresFromAdapter() {
         // Simulate: app died after persisting
-        instance.dispatchPersisted<ToastFeature>("show", "Restored!")
+        instance.dispatchPersisted<ToastFeature>("toast", "show", "Restored!")
         assertEquals(1, adapter.saved.size)
 
         // Simulate: app restart — create new instance with SAME scope name and adapter
@@ -183,7 +183,7 @@ class PersistedDispatchTest {
         val newInstance = KRelay.builder("PersistTestScope")  // same scope as original
             .build()
         newInstance.setPersistenceAdapter(adapter)
-        newInstance.registerActionFactory<ToastFeature>("show") { payload -> { it.show(payload) } }
+        newInstance.registerActionFactory<ToastFeature>("toast", "show") { payload -> { it.show(payload) } }
 
         // Restore
         newInstance.restorePersistedActions()
@@ -199,12 +199,12 @@ class PersistedDispatchTest {
 
     @Test
     fun testRestorePersistedActions_thenRegister_replaysAction() {
-        instance.dispatchPersisted<ToastFeature>("show", "After Restore")
+        instance.dispatchPersisted<ToastFeature>("toast", "show", "After Restore")
 
         // Simulate restart — same scope name
         val newInstance = KRelay.builder("PersistTestScope").build()
         newInstance.setPersistenceAdapter(adapter)
-        newInstance.registerActionFactory<ToastFeature>("show") { payload -> { it.show(payload) } }
+        newInstance.registerActionFactory<ToastFeature>("toast", "show") { payload -> { it.show(payload) } }
         newInstance.restorePersistedActions()
 
         val mock = MockToast()
@@ -224,7 +224,7 @@ class PersistedDispatchTest {
 
     @Test
     fun testRestorePersistedActions_noFactoryRegistered_skipsGracefully() {
-        instance.dispatchPersisted<ToastFeature>("show", "will be skipped")
+        instance.dispatchPersisted<ToastFeature>("toast", "show", "will be skipped")
 
         // New instance with NO factory registered
         val newInstance = KRelay.builder("PersistTestScope4").build()
@@ -243,7 +243,7 @@ class PersistedDispatchTest {
 
     @Test
     fun testReset_clearsPersistenceScope() {
-        instance.dispatchPersisted<ToastFeature>("show", "to be cleared")
+        instance.dispatchPersisted<ToastFeature>("toast", "show", "to be cleared")
         assertEquals(1, adapter.loadAll("PersistTestScope").size)
 
         instance.reset()
@@ -262,7 +262,7 @@ class PersistedDispatchTest {
         // No factory registered for NavFeature
 
         assertFailsWith<IllegalStateException> {
-            freshInstance.dispatchPersisted<NavFeature>("go", "home")
+            freshInstance.dispatchPersisted<NavFeature>("nav", "go", "home")
         }
 
         freshInstance.reset()

@@ -23,8 +23,12 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
-            // Specify bundle ID to avoid warning
             binaryOption("bundleId", "dev.brewkits.krelay.ComposeApp")
+            // Export krelay so that its types (RelayFeature, ToastFeature, KRelayIosHelperKt, etc.)
+            // are accessible from Swift via `import ComposeApp` without needing a separate
+            // `import Krelay`. This avoids the "unable to resolve module dependency" error
+            // when the iosApp target only links ComposeApp.framework.
+            export(project(":krelay"))
         }
     }
     
@@ -44,7 +48,6 @@ kotlin {
             implementation(libs.compose.material3)
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
-            implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
 
@@ -69,8 +72,9 @@ kotlin {
             implementation(libs.peekaboo.ui)
             implementation(libs.peekaboo.image.picker)
 
-            // KRelay library
-            implementation(project(":krelay"))
+            // KRelay library — api() so krelay types can be export()-ed in the iOS framework
+            api(project(":krelay"))
+            implementation(project(":krelay-compose"))
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
