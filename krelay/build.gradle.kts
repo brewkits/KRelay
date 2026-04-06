@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.net.URL
+import java.util.Base64
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -173,16 +174,23 @@ publishing {
 }
 
 signing {
-    // Support both in-memory key (signing.key) and keyring (signing.keyId)
-    val signingKey = findProperty("signing.key")?.toString() ?: System.getenv("SIGNING_KEY")
+    val rawKey = findProperty("signing.key")?.toString() ?: System.getenv("SIGNING_KEY")
     val signingPassword = findProperty("signing.password")?.toString() ?: System.getenv("SIGNING_PASSWORD")
 
-    if (signingKey != null && signingPassword != null) {
-        // Use in-memory key (recommended for CI/CD)
+    if (rawKey != null && signingPassword != null) {
+        // Key may be stored as base64 in gradle.properties — decode if needed
+        val signingKey = try {
+            val decoded = String(Base64.getDecoder().decode(rawKey))
+            if (decoded.contains("-----BEGIN PGP")) decoded else rawKey
+        } catch (_: Exception) { rawKey }
         useInMemoryPgpKeys(signingKey, signingPassword)
         sign(publishing.publications)
     } else if (findProperty("signing.keyId") != null) {
-        // Use traditional GPG keyring
         sign(publishing.publications)
     }
+}
+
+// Fix implicit dependency ordering issue between signing and publishing tasks
+tasks.withType<AbstractPublishToMaven>().configureEach {
+    mustRunAfter(tasks.withType<Sign>())
 }
