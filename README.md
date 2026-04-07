@@ -18,18 +18,32 @@ Dispatch UI commands (Toast, Navigation, Permissions) from shared ViewModels to 
 
 ---
 
-## The problem
+## The "State" Trap
 
-Shared ViewModels can't safely touch platform APIs. Every approach has a catch:
+Most mobile apps treat everything (Toasts, Navigation, Alerts) as **State**. This is why you see "Ghost Toasts" popping up after rotation, or users stuck because a navigation event fired in the 300ms "blind spot" during an Activity restart.
 
-| Approach | Problem |
+| Approach | The Pain Point |
 |---|---|
-| Pass `Activity` / `UIViewController` | Memory leak |
-| `SharedFlow` + `collect {}` | Events lost on rotation |
-| `expect/actual` | Wires up a whole file for a one-liner |
-| `LiveData` / `StateFlow` as event | Complex, miss-able |
+| Pass `Activity` / `UIViewController` | Memory leaks and `onDestroy` boilerplate |
+| `SharedFlow(replay=0)` | Events are lost during screen rotation |
+| `StateFlow` as Event | Double-execution / Side-effects that "stick" |
+| `Channels` | Single-observer only (unsuitable for UI + Analytics) |
 
-KRelay is none of the above. It is a **typed bridge**: the ViewModel signals an intent, the platform fulfills it.
+KRelay is a **Buffered Multicasting** bridge. Your shared ViewModel signals an intent, and the platform fulfills it — exactly once, always on the Main Thread, even if the UI wasn't ready when you called it.
+
+---
+
+## Architectural Philosophy
+
+> **"State is for seeing, Event is for running."**
+
+KRelay is designed for mission-critical systems (VoIP, Fintech, SOS) where event delivery is non-negotiable.
+
+- **Buffering:** Holds events during the UI startup "blind spot."
+- **Multicasting:** One dispatch, multiple listeners (UI, Analytics, Logging).
+- **No-Replay:** Side-effects vanish immediately after they run.
+
+Read the [State vs. Event: Why your MVI/Redux app is probably leaking side-effects](docs/EVENT_DRIVEN_DESIGN.md).
 
 ---
 
