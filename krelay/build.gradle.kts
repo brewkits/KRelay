@@ -22,6 +22,11 @@ kotlin {
         publishLibraryVariants("release")
     }
 
+    jvm() // Desktop target
+    wasmJs {
+        browser()
+    }
+
     // iOS targets - publish each as separate artifact
     listOf(
         iosArm64(),

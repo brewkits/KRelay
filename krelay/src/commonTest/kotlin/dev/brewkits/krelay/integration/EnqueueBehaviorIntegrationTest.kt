@@ -1,8 +1,9 @@
 package dev.brewkits.krelay.integration
 
 import dev.brewkits.krelay.*
+import dev.brewkits.krelay.runTestBlocking
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
+
 import kotlin.test.*
 
 /**
@@ -150,7 +151,7 @@ class EnqueueBehaviorIntegrationTest {
     // ── Expiry pruning before overflow check ──────────────────────────────
 
     @Test
-    fun expiry_prunesBeforeOverflowCheck_allowsNewEntries() = runBlocking {
+    fun expiry_prunesBeforeOverflowCheck_allowsNewEntries() = runTestBlocking {
         instance.maxQueueSize = 2
         // Expire after > 10 ms — gives sufficient margin on iOS Simulator in CI
         instance.actionExpiryMs = 10L

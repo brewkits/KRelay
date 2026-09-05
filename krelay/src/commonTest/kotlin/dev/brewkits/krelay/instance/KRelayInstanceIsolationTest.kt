@@ -1,8 +1,9 @@
 package dev.brewkits.krelay.instance
 
 import dev.brewkits.krelay.*
+import dev.brewkits.krelay.runTestBlocking
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
+
 import kotlin.test.*
 
 /**
@@ -62,7 +63,7 @@ class KRelayInstanceIsolationTest {
     }
 
     @Test
-    fun `instance A and B should have isolated registries`() = runBlocking {
+    fun `instance A and B should have isolated registries`() = runTestBlocking {
         // Given: Two instances
         val instanceA = KRelay.create("ModuleA")
         val instanceB = KRelay.create("ModuleB")
@@ -85,7 +86,7 @@ class KRelayInstanceIsolationTest {
     }
 
     @Test
-    fun `instance queue should not affect singleton queue`() = runBlocking {
+    fun `instance queue should not affect singleton queue`() = runTestBlocking {
         // Given: Singleton and instance both dispatch before registration
         KRelay.dispatch<TestFeature> { it.execute("singleton") }
 
@@ -157,7 +158,7 @@ class KRelayInstanceIsolationTest {
     }
 
     @Test
-    fun `multiple instances can coexist with different features`() = runBlocking {
+    fun `multiple instances can coexist with different features`() = runTestBlocking {
         // Given: Three instances with different features
         val rideInstance = KRelay.create("RideModule")
         val foodInstance = KRelay.create("FoodModule")
@@ -186,7 +187,7 @@ class KRelayInstanceIsolationTest {
     }
 
     @Test
-    fun `instance reset does not affect other instances`() = runBlocking {
+    fun `instance reset does not affect other instances`() = runTestBlocking {
         // Given: Two instances with registrations
         val instanceA = KRelay.create("ModuleA")
         val instanceB = KRelay.create("ModuleB")
@@ -214,7 +215,7 @@ class KRelayInstanceIsolationTest {
     }
 
     @Test
-    fun `singleton reset does not affect instances`() = runBlocking {
+    fun `singleton reset does not affect instances`() = runTestBlocking {
         // Given: Singleton and instance with registrations
         val instance = KRelay.create("TestModule")
 
@@ -241,7 +242,7 @@ class KRelayInstanceIsolationTest {
     }
 
     @Test
-    fun `instance debug info is isolated`() = runBlocking {
+    fun `instance debug info is isolated`() = runTestBlocking {
         // Given: Two instances with different states
         val instanceA = KRelay.create("ModuleA")
         val instanceB = KRelay.create("ModuleB")
@@ -266,7 +267,7 @@ class KRelayInstanceIsolationTest {
     }
 
     @Test
-    fun `instance clearQueue is isolated`() = runBlocking {
+    fun `instance clearQueue is isolated`() = runTestBlocking {
         // Given: Singleton and instance both have pending actions
         KRelay.dispatch<TestFeature> { it.execute("singleton") }
 
@@ -287,7 +288,7 @@ class KRelayInstanceIsolationTest {
     }
 
     @Test
-    fun `instance unregister is isolated`() = runBlocking {
+    fun `instance unregister is isolated`() = runTestBlocking {
         // Given: Singleton and instance both registered
         val mockSingleton = MockFeature()
         val mockInstance = MockFeature()

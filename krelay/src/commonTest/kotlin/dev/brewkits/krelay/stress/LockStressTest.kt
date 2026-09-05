@@ -2,8 +2,10 @@ package dev.brewkits.krelay.stress
 
 import dev.brewkits.krelay.KRelay
 import dev.brewkits.krelay.RelayFeature
+import dev.brewkits.krelay.runTestBlocking
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.*
+
 import kotlin.test.*
 
 /**
@@ -53,7 +55,7 @@ class LockStressTest {
      * Actual dispatch-to-impl execution is covered by MainThreadDispatchInstrumentedTest.
      */
     @Test
-    fun stressTest_MassiveConcurrentDispatch() = runBlocking {
+    fun stressTest_MassiveConcurrentDispatch() = runTestBlocking {
         // No impl registered — all dispatches go to the in-memory queue
         val numCoroutines = 100
         val operationsPerCoroutine = 1000
@@ -82,7 +84,7 @@ class LockStressTest {
      * Failure Mode: If Lock broken → CME or NPE
      */
     @Test
-    fun stressTest_RegisterUnregisterRace() = runBlocking {
+    fun stressTest_RegisterUnregisterRace() = runTestBlocking {
         val counter = SimpleCounter()
         val completedDispatches = atomic(0)
 
@@ -129,7 +131,7 @@ class LockStressTest {
      * when multiple threads are adding to a full queue simultaneously.
      */
     @Test
-    fun stressTest_QueueOverflowConcurrent() = runBlocking {
+    fun stressTest_QueueOverflowConcurrent() = runTestBlocking {
         val counter = SimpleCounter()
         // Don't register yet - let queue fill up
 
@@ -173,7 +175,7 @@ class LockStressTest {
      * for platform independence. Dispatch-to-impl correctness is in MainThreadDispatchInstrumentedTest.
      */
     @Test
-    fun stressTest_MultiFeatureConcurrent() = runBlocking {
+    fun stressTest_MultiFeatureConcurrent() = runTestBlocking {
         // No impl registered — all dispatches go to queues
         val operationsPerFeature = 1000
 
@@ -210,7 +212,7 @@ class LockStressTest {
      * Failure Mode: If non-reentrant → deadlock
      */
     @Test
-    fun stressTest_ReentrantLock() = runBlocking {
+    fun stressTest_ReentrantLock() = runTestBlocking {
         val counter = SimpleCounter()
         KRelay.register<CounterFeature>(counter)
 
