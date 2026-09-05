@@ -44,13 +44,13 @@ class ScopeTokenConcurrentStressTest {
      */
     @Test
     fun stress_concurrentDispatchAndCancelScope_noCorruption() = runTestBlocking {
-        val tokens = (0 until 20).map { scopedToken() }
+        val tokens = (0 until 50).map { scopedToken() }
         val cancelCount = atomic(0)
 
-        // 20 goroutines each dispatching 200 actions with their own token
+        // 50 goroutines each dispatching 500 actions with their own token
         val dispatchJobs = tokens.map { token ->
             launch(Dispatchers.Default) {
-                repeat(200) { i ->
+                repeat(500) { i ->
                     try {
                         instance.dispatch<WorkFeature>(token) { it.run("$token-$i") }
                     } catch (e: Exception) {

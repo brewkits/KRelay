@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "dev.brewkits"
-version = "2.1.1"
+version = "2.5.0"
 
 // Declare BOM constraints — all KRelay artifacts aligned to the same version
 dependencies {
@@ -13,6 +13,7 @@ dependencies {
         api(project(":krelay"))
         api(project(":krelay-compose"))
         api(project(":krelay-testing"))
+        api(project(":krelay-flow"))
     }
 }
 

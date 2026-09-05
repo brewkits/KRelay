@@ -57,8 +57,8 @@ class LockStressTest {
     @Test
     fun stressTest_MassiveConcurrentDispatch() = runTestBlocking {
         // No impl registered — all dispatches go to the in-memory queue
-        val numCoroutines = 100
-        val operationsPerCoroutine = 1000
+        val numCoroutines = 200
+        val operationsPerCoroutine = 2000
 
         val jobs = List(numCoroutines) {
             launch(Dispatchers.Default) {

@@ -35,12 +35,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v3
       - name: Run krelay unit tests
         run: ./gradlew :krelay:testDebugUnitTest --no-daemon
+      - name: Run krelay-flow unit tests
+        run: ./gradlew :krelay-flow:testDebugUnitTest :krelay-flow:jvmTest --no-daemon
+      - name: Run krelay-testing unit tests
+        run: ./gradlew :krelay-testing:testDebugUnitTest --no-daemon
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: android-test-results
-          path: krelay/build/reports/tests/
+          path: |
+            krelay/build/reports/tests/
+            krelay-flow/build/reports/tests/
+            krelay-testing/build/reports/tests/
 
   # ──────────────────────────────────────────────────────────────────────────
   test-ios:
@@ -76,8 +83,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v3
       - name: Build krelay (all targets)
         run: ./gradlew :krelay:assemble --no-daemon
+      - name: Build krelay-flow (all targets)
+        run: ./gradlew :krelay-flow:assemble --no-daemon
       - name: Build krelay-compose (all targets)
         run: ./gradlew :krelay-compose:assemble --no-daemon
+      - name: Build krelay-testing (all targets)
+        run: ./gradlew :krelay-testing:assemble --no-daemon
+      - name: Build krelay-bom
+        run: ./gradlew :krelay-bom:assemble --no-daemon
       - name: Build composeApp demo (Android)
         run: ./gradlew :composeApp:assembleDebug --no-daemon
       - name: Link iOS framework (krelay)
@@ -111,8 +124,32 @@ jobs:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         continue-on-error: true
+      - name: Publish krelay-flow to OSSRH
+        run: ./gradlew :krelay-flow:publishAllPublicationsToOSSRHRepository --no-daemon
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        continue-on-error: true
       - name: Publish krelay-compose to OSSRH
         run: ./gradlew :krelay-compose:publishAllPublicationsToOSSRHRepository --no-daemon
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        continue-on-error: true
+      - name: Publish krelay-testing to OSSRH
+        run: ./gradlew :krelay-testing:publishAllPublicationsToOSSRHRepository --no-daemon
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        continue-on-error: true
+      - name: Publish krelay-bom to OSSRH
+        run: ./gradlew :krelay-bom:publishAllPublicationsToOSSRHRepository --no-daemon
         env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}

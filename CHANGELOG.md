@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.0] - 2026-09-05
+
+### Added
+- **JVM Desktop target**: `jvm()` target enabling Compose Desktop support (macOS, Windows, Linux).
+- **WasmJs target**: `wasmJs { browser() }` for running KRelay in modern web browsers via Kotlin/Wasm.
+- **`krelay-flow` module**: Official Kotlin Coroutines Flow adapter. The `relayTo<T, F>` intermediate operator bridges any `Flow` to `KRelayInstance`, dispatching each emission to the relay.
+- **`krelay-flow` in BOM**: `krelay-bom` now constrains `krelay-flow` alongside all other KRelay artifacts.
+- **Full CI/CD coverage**: `ci.yml` now tests, builds, and publishes all 5 modules (`krelay`, `krelay-flow`, `krelay-compose`, `krelay-testing`, `krelay-bom`).
+
+### Changed
+- **Enhanced stress tests**: `LockStressTest` increased to 200 coroutines × 2000 operations; `ScopeTokenConcurrentStressTest` increased to 50 coroutines × 500 operations.
+- **`release.yml` test jobs**: Now include `krelay-flow` in build and publish steps.
+
+### Fixed
+- **`krelay-flow` Maven Central publishing**: Added POM metadata, empty javadoc JAR, GPG signing, and OSSRH repository config — previously missing entirely, which would have caused Maven Central rejection.
+
+---
+
 ## [2.1.1] - 2026-09-05
 
 ### Added

@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "dev.brewkits"
-version = "2.1.1"
+version = "2.5.0"
 
 kotlin {
     androidTarget {
