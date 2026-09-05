@@ -49,11 +49,22 @@ Read the [State vs. Event: Why your MVI/Redux app is probably leaking side-effec
 
 ## Install
 
+KRelay now provides a **Bill of Materials (BOM)** to automatically align versions across all artifacts.
+
 ```kotlin
 // shared/build.gradle.kts
-commonMain.dependencies {
-    implementation("dev.brewkits:krelay:2.1.1")
-    implementation("dev.brewkits:krelay-compose:2.1.1") // Compose helpers (optional)
+sourceSets {
+    commonMain.dependencies {
+        // 1. (Recommended) Import the BOM
+        api(platform("dev.brewkits:krelay-bom:2.1.1"))
+        
+        // 2. Add dependencies without specifying versions
+        implementation("dev.brewkits:krelay")
+        implementation("dev.brewkits:krelay-compose") // Optional: Compose helpers
+    }
+    commonTest.dependencies {
+        implementation("dev.brewkits:krelay-testing") // Optional: Test fakes and assertions
+    }
 }
 ```
 
@@ -267,53 +278,47 @@ KRelayEffect<ToastFeature>(instance = myKRelayInstance) { ... }
 
 ## Testing
 
-No mocking library required. Inject a real `KRelayInstance` and register plain Kotlin objects.
+KRelay is designed for maximum testability. The `krelay-testing` artifact provides test fakes, JUnit rules, and type-safe assertions, completely removing the need for mocking frameworks.
 
 ```kotlin
-private lateinit var krelay: KRelayInstance
-private lateinit var viewModel: LoginViewModel
+import dev.brewkits.krelay.testing.KRelayTestRule
+import kotlin.test.Test
+import kotlin.test.AfterTest
 
-@BeforeTest
-fun setup() {
-    krelay = KRelay.create("TestScope")
-    viewModel = LoginViewModel(krelay = krelay)
-}
+class LoginViewModelTest {
+    
+    // Automatically resets state after each test
+    private val relayRule = KRelayTestRule()
+    private val viewModel by lazy { LoginViewModel(krelay = relayRule.relay) }
 
-@AfterTest
-fun tearDown() {
-    krelay.reset()
-}
+    @AfterTest
+    fun tearDown() = relayRule.after()
 
-@Test
-fun `login success shows toast and navigates`() {
-    val toast = MockToast()
-    val nav   = MockNav()
-    krelay.register<ToastFeature>(toast)
-    krelay.register<NavFeature>(nav)
+    @Test
+    fun `login success shows toast and navigates`() {
+        // Act
+        viewModel.onLoginSuccess()
 
-    viewModel.onLoginSuccess()
-
-    assertEquals("Welcome back!", toast.lastMessage)
-    assertEquals("home", nav.lastDestination)
-}
-
-class MockToast : ToastFeature {
-    var lastMessage: String? = null
-    override fun show(message: String) { lastMessage = message }
-}
-
-class MockNav : NavFeature {
-    var lastDestination: String? = null
-    override fun navigateTo(screen: String) { lastDestination = screen }
+        // Assert - type-safe and precise
+        relayRule.relay.assertDispatched<ToastFeature>()
+        relayRule.relay.assertDispatched<NavFeature>()
+        
+        // Optional: execute the dispatch against a mock to verify parameters
+        var toastMessage: String? = null
+        relayRule.relay.executeLastDispatch(object : ToastFeature {
+            override fun show(msg: String) { toastMessage = msg }
+        })
+        assertEquals("Welcome back!", toastMessage)
+    }
 }
 ```
 
 Run the test suite:
 
 ```bash
-./gradlew :krelay:test                           # JVM (fast)
-./gradlew :krelay:iosSimulatorArm64Test          # iOS Simulator
-./gradlew :krelay:connectedDebugAndroidTest      # Real Android device
+./gradlew :shared:test                           # JVM (fast)
+./gradlew :shared:iosSimulatorArm64Test          # iOS Simulator
+./gradlew :shared:connectedDebugAndroidTest      # Real Android device
 ```
 
 ---
@@ -388,29 +393,25 @@ See [Integration Guides](docs/INTEGRATION_GUIDES.md) for step-by-step examples.
 
 ## What's New
 
-<details>
-<summary><strong>v2.1.1 — Hardened & Standardized</strong></summary>
+<details open>
+<summary><strong>v2.1.1 — QA Hardening & Ecosystem Infrastructure</strong> <em>(Sep 2026)</em></summary>
 
-- **Atomic dispatch** — the impl lookup, queue insertion, and persistence decision happen inside a single lock, closing the TOCTOU window that could strand an action indefinitely.
-- **`krelay-compose` artifact** — `KRelayEffect<T>` and `rememberKRelayImpl<T>` published as `dev.brewkits:krelay-compose:2.1.1`, separate from the zero-dependency core.
-- **ProGuard/R8-safe persistence** — `registerActionFactory` and `dispatchPersisted` now require an explicit stable `featureKey` string. Old overloads deprecated with `replaceWith` guidance.
-- **Identity-aware `unregister`** — `unregister(impl)` only removes the registration if the stored reference matches, preventing a recomposing Compose component from clearing a newer registration.
-- **Thread-safe metrics** — all `KRelayMetrics` operations are now lock-protected.
-- **iOS registration validation** — `registerFeature` validates interface conformance at runtime; crashes in debug, warns in release.
-- **Priority eviction** — queue overflow now evicts the lowest-priority action, not the oldest FIFO item.
-
+- **`krelay-testing` artifact** — `FakeKRelayInstance` with a full assertion API (`assertDispatched`, `assertNotDispatched`, `executeLastDispatch`) for clean, mock-free unit testing.
+- **`krelay-bom` (Bill of Materials)** — automatically align versions across all KRelay artifacts.
+- **Public reified `dispatchWithPriority` API** — simplified prioritization on both the singleton and `KRelayInstance`.
+- **Binary Compatibility Validator (BCV)** — integrated JetBrains BCV (`apiCheck`) to mathematically guarantee zero breaking API changes in minor/patch releases.
+- **Enterprise-grade CI/CD** — automated multi-platform test matrices and release pipelines.
+- **Atomic dispatch & bug fixes** — zero TOCTOU race conditions.
 </details>
 
 <details>
-<summary><strong>v2.1.0 — Compose, Persistence & Scope Tokens</strong></summary>
+<summary><strong>v2.1.0 — Compose Integration & Scope Tokens</strong> <em>(Mar 2026)</em></summary>
 
 - `KRelayEffect<T>` and `rememberKRelayImpl<T>` Compose helpers
 - Persistent dispatch with `dispatchPersisted<T>()` — survives process death
 - `SharedPreferencesPersistenceAdapter` (Android) and `NSUserDefaultsPersistenceAdapter` (iOS)
 - Scope Token API: `scopedToken()` + `cancelScope(token)` for fine-grained ViewModel cleanup
-- `dispatchWithPriority` available on instances (was singleton-only)
 - `resetConfiguration()` without clearing the registry or queue
-
 </details>
 
 <details>
