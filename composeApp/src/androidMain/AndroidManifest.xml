@@ -23,7 +23,7 @@
             android:value="true" />
         <activity
             android:exported="true"
-            android:name=".MainActivity">
+            android:name="dev.brewkits.krelay.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
