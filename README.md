@@ -57,12 +57,12 @@ KRelay now provides a **Bill of Materials (BOM)** to automatically align version
 sourceSets {
     commonMain.dependencies {
         // 1. (Recommended) Import the BOM
-        api(platform("dev.brewkits:krelay-bom:2.5.0"))
+        api(platform("dev.brewkits:krelay-bom:2.2.0"))
         
         // 2. Add dependencies without specifying versions
         implementation("dev.brewkits:krelay")
         implementation("dev.brewkits:krelay-compose") // Optional: Compose helpers
-        implementation("dev.brewkits:krelay-flow")    // Optional: Flow operators (v2.5.0+)
+        implementation("dev.brewkits:krelay-flow")    // Optional: Flow operators (v2.2.0+)
     }
     commonTest.dependencies {
         implementation("dev.brewkits:krelay-testing") // Optional: Test fakes and assertions

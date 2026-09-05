@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.5.0] - 2026-09-05
+## [2.2.0] - 2026-09-05
 
 ### Added
 - **JVM Desktop target**: `jvm()` target enabling Compose Desktop support (macOS, Windows, Linux).

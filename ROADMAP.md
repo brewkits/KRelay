@@ -48,7 +48,7 @@
 - **New**: `release.yml` CD workflow triggered by git tags
 - **New**: GitHub Issue Templates, `CONTRIBUTING.md`, `SECURITY.md`
 - Decompose upgraded to `3.4.0-alpha03` (iOS linker fix)
-### v2.5.0 — Desktop, Web & Flow Adapter *(Sep 2026)*
+### v2.2.0 — Desktop, Web & Flow Adapter *(Sep 2026)*
 - **JVM Desktop** support: `jvm()` target for Compose Desktop (macOS, Windows, Linux)
 - **Kotlin/WasmJs** target for web use-cases
 - **`krelay-flow` artifact**: Official Kotlin Coroutines Flow adapter — `relayTo` operator bridges any `Flow` to `KRelayInstance`
@@ -91,4 +91,4 @@ Issues, PRs, and discussions are welcome at [github.com/brewkits/KRelay](https:/
 
 ---
 
-**Current Version**: v2.5.0 · **Last Updated**: 2026-09-05
+**Current Version**: v2.2.0 · **Last Updated**: 2026-09-05
