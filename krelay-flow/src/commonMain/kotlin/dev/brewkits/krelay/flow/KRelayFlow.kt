@@ -14,31 +14,25 @@ import dev.brewkits.krelay.RelayFeature
 import dev.brewkits.krelay.dispatch
 
 
+import kotlinx.coroutines.flow.onEach
 
 /**
- * Binds a StateFlow to KRelay, dispatching every new value to the relay.
+ * Binds any Flow to KRelay, dispatching every new value to the relay.
+ * This is an intermediate operator. You must use a terminal operator like `launchIn` 
+ * or `collect` to start the flow.
+ *
+ * Example:
+ * ```
+ * stateFlow
+ *     .relayTo<String, ToastFeature>(instance) { feature, value -> feature.show(value) }
+ *     .launchIn(viewModelScope)
+ * ```
  */
-suspend inline fun <T : Any, reified F : RelayFeature> StateFlow<T>.relayTo(
+inline fun <T : Any, reified F : RelayFeature> Flow<T>.relayTo(
     instance: KRelayInstance,
     crossinline mapper: (F, T) -> Unit
-) {
-    collect { value ->
-        instance.dispatch<F> { feature ->
-            mapper(feature, value)
-        }
-    }
-}
-
-/**
- * Binds a SharedFlow to KRelay, dispatching every new value to the relay.
- */
-suspend inline fun <T : Any, reified F : RelayFeature> SharedFlow<T>.relayTo(
-    instance: KRelayInstance,
-    crossinline mapper: (F, T) -> Unit
-) {
-    collect { value ->
-        instance.dispatch<F> { feature ->
-            mapper(feature, value)
-        }
+): Flow<T> = onEach { value ->
+    instance.dispatch<F> { feature ->
+        mapper(feature, value)
     }
 }
