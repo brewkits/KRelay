@@ -54,7 +54,7 @@ import dev.brewkits.krelay.compose.KRelayEffect
 fun HomeScreen() {
     val context = LocalContext.current
 
-    KRelayEffect<ToastFeature> {
+    KRelayEffect<ToastFeature>(keys = arrayOf("optional_key")) {
         object : ToastFeature {
             override fun show(message: String) =
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -86,10 +86,13 @@ fun HomeScreen() {
 }
 ```
 
-Both helpers accept an optional `instance` parameter for use with the Instance API:
+Both helpers accept an optional `instance` parameter for use with the Instance API, and a `keys` parameter (vararg) to automatically unregister and re-register if dependencies change (similar to `remember` keys):
 
 ```kotlin
-KRelayEffect<ToastFeature>(instance = myKRelayInstance) { ... }
+KRelayEffect<ToastFeature>(
+    instance = myKRelayInstance, 
+    keys = arrayOf(viewModel.userId)
+) { ... }
 ```
 
 > **Implementation note**: Both helpers use `KRelay.instance` (the public `KRelayInstance`

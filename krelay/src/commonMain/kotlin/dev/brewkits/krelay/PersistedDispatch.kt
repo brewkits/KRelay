@@ -29,7 +29,7 @@ inline fun <reified T : RelayFeature> KRelayInstance.registerActionFactory(
  */
 @Deprecated(
     message = "Use the version with an explicit featureKey to avoid ProGuard obfuscation issues.",
-    replaceWith = ReplaceWith("registerActionFactory(\"FIXED_KEY\", actionKey, factory)")
+    replaceWith = ReplaceWith("registerActionFactory(\"YOUR_FEATURE_KEY\", actionKey, factory)")
 )
 inline fun <reified T : RelayFeature> KRelayInstance.registerActionFactory(
     actionKey: String,
@@ -56,7 +56,7 @@ inline fun <reified T : RelayFeature> KRelayInstance.dispatchPersisted(
  */
 @Deprecated(
     message = "Use the version with an explicit featureKey to avoid ProGuard obfuscation issues.",
-    replaceWith = ReplaceWith("dispatchPersisted(\"FIXED_KEY\", actionKey, payload, priority)")
+    replaceWith = ReplaceWith("dispatchPersisted(\"YOUR_FEATURE_KEY\", actionKey, payload, priority)")
 )
 inline fun <reified T : RelayFeature> KRelayInstance.dispatchPersisted(
     actionKey: String,
@@ -94,7 +94,7 @@ inline fun <reified T : RelayFeature> KRelay.registerActionFactory(
  */
 @Deprecated(
     message = "Use the version with an explicit featureKey.",
-    replaceWith = ReplaceWith("KRelay.registerActionFactory(\"FIXED_KEY\", actionKey, factory)")
+    replaceWith = ReplaceWith("KRelay.registerActionFactory(\"YOUR_FEATURE_KEY\", actionKey, factory)")
 )
 inline fun <reified T : RelayFeature> KRelay.registerActionFactory(
     actionKey: String,
@@ -121,7 +121,7 @@ inline fun <reified T : RelayFeature> KRelay.dispatchPersisted(
  */
 @Deprecated(
     message = "Use the version with an explicit featureKey.",
-    replaceWith = ReplaceWith("KRelay.dispatchPersisted(\"FIXED_KEY\", actionKey, payload, priority)")
+    replaceWith = ReplaceWith("KRelay.dispatchPersisted(\"YOUR_FEATURE_KEY\", actionKey, payload, priority)")
 )
 inline fun <reified T : RelayFeature> KRelay.dispatchPersisted(
     actionKey: String,

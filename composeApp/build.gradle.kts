@@ -54,9 +54,9 @@ kotlin {
             // Material Icons Extended (for AutoMirrored icons and additional icons)
             implementation(compose.materialIconsExtended)
 
-            // Voyager - Navigation library for KMP (has lifecycle bugs, using Decompose instead)
-            implementation("cafe.adriel.voyager:voyager-navigator:1.1.0-beta03")
-            implementation("cafe.adriel.voyager:voyager-transitions:1.1.0-beta03")
+            // Voyager - Navigation library for KMP (used for some screens alongside Decompose)
+            implementation(libs.voyager.navigator)
+            implementation(libs.voyager.transitions)
 
             // Decompose - Alternative navigation library for KMP
             implementation(libs.decompose)
@@ -83,15 +83,15 @@ kotlin {
 }
 
 android {
-    namespace = "dev.brewkits.krelay"
+    namespace = "dev.brewkits.krelay.demo"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "dev.brewkits.krelay"
+        applicationId = "dev.brewkits.krelay.demo"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "2.1.1"
     }
     packaging {
         resources {
@@ -100,7 +100,12 @@ android {
     }
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
     compileOptions {

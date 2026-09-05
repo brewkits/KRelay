@@ -2,7 +2,6 @@ package dev.brewkits.krelay
 
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
-import platform.darwin.dispatch_sync
 import platform.Foundation.NSThread
 
 /**

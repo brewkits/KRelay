@@ -20,6 +20,9 @@
     protected *;
 }
 
+# Keep top-level functions in KRelay file
+-keep class dev.brewkits.krelay.KRelayKt { *; }
+
 -keep class dev.brewkits.krelay.KRelayMetrics {
     public *;
 }
@@ -33,14 +36,14 @@
 # Keep Lock implementations (platform-specific)
 -keep class dev.brewkits.krelay.Lock { *; }
 
-# Keep QueuedAction and its members (used in reflection)
--keep class dev.brewkits.krelay.QueuedAction { *; }
+# Keep QueuedAction fields used in serialization/reflection
+-keepclassmembers class dev.brewkits.krelay.QueuedAction {
+    <fields>;
+}
 
 # Keep ActionPriority enum
 -keep enum dev.brewkits.krelay.ActionPriority { *; }
 
-# Keep MainThreadExecutor implementations
--keep class dev.brewkits.krelay.MainThreadExecutor { *; }
 
 # Preserve annotations (if any are added in the future)
 -keepattributes *Annotation*

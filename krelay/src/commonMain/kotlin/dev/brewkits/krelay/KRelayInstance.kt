@@ -79,6 +79,16 @@ interface KRelayInstance {
     fun <T : RelayFeature> dispatch(kClass: KClass<T>, block: (T) -> Unit, scopeToken: String? = null)
 
     /**
+     * Dispatches an action with a specific priority level.
+     * Higher priority actions are replayed before lower priority ones.
+     */
+    fun <T : RelayFeature> dispatchWithPriority(
+        kClass: KClass<T>,
+        priorityValue: Int,
+        block: (T) -> Unit
+    )
+
+    /**
      * Removes a registration for a feature.
      * 
      * @param kClass The feature type to unregister.

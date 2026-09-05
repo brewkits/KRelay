@@ -22,7 +22,7 @@ class KRelayBuilder internal constructor(
     }
 
     private var maxQueueSize: Int = 100
-    private var actionExpiryMs: Long = 60_000
+    private var actionExpiryMs: Long = 300_000
     private var debugMode: Boolean = false
 
     /**
@@ -41,7 +41,7 @@ class KRelayBuilder internal constructor(
 
     /**
      * Sets action expiry time in milliseconds.
-     * Default: 60,000ms (1 minute)
+     * Default: 300,000ms (5 minutes)
      *
      * @param ms Expiry time in milliseconds (must be > 0)
      * @return This builder for chaining

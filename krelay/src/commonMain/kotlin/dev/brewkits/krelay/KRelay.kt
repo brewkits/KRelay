@@ -58,26 +58,7 @@ object KRelay {
     // SINGLETON API (v1.0 - Backward Compatible)
     // ============================================================
 
-    /**
-     * The internal lock protecting the registry and queue.
-     */
-    @PublishedApi
-    internal val lock: Lock
-        get() = defaultInstance.lock
-
-    /**
-     * Current mapping of Feature Class to its platform implementation.
-     */
-    @PublishedApi
-    internal val registry: MutableMap<KClass<*>, WeakRef<Any>>
-        get() = defaultInstance.registry
-
-    /**
-     * The current queue of pending actions awaiting a registered implementation.
-     */
-    @PublishedApi
-    internal val pendingQueue: MutableMap<KClass<*>, MutableList<QueuedAction>>
-        get() = defaultInstance.pendingQueue
+    // Internal state accessors removed for M-03. Always use defaultInstance.
 
     /**
      * Global configuration: Maximum pending actions allowed per feature type.
@@ -266,9 +247,7 @@ object KRelay {
         priority: ActionPriority,
         block: (T) -> Unit
     ) {
-        if (defaultInstance is KRelayInstanceImpl) {
-            defaultInstance.dispatchWithPriorityInternal(kClass, priority.value, block)
-        }
+        defaultInstance.dispatchWithPriority(kClass, priority.value, block)
     }
 
     /**
@@ -333,6 +312,15 @@ object KRelay {
         }
 
         return KRelayInstanceImpl(scopeName)
+    }
+
+    /**
+     * Removes an isolated instance from the registry.
+     */
+    fun removeInstance(scopeName: String) {
+        instanceRegistryLock.withLock {
+            instanceRegistry.remove(scopeName)
+        }
     }
 
     /**
@@ -423,4 +411,4 @@ inline fun <reified T : RelayFeature> KRelayInstance.clearQueue() {
  * 
  * Using tokens allows for surgical cleanup of the sticky queue when a component is destroyed.
  */
-fun scopedToken(): String = "krelay-${currentTimeMillis()}-${kotlin.random.Random.nextInt(Int.MAX_VALUE)}"
+fun scopedToken(): String = "krelay-${currentTimeMillis()}-${kotlin.random.Random.nextLong()}"

@@ -3,6 +3,9 @@ package dev.brewkits.krelay
 import android.content.Context
 import android.content.SharedPreferences
 
+import org.json.JSONArray
+import org.json.JSONException
+
 /**
  * Android implementation of [KRelayPersistenceAdapter] using [SharedPreferences].
  *
@@ -46,17 +49,18 @@ class SharedPreferencesPersistenceAdapter(
 
     override fun save(scopeName: String, featureKey: String, command: PersistedCommand) {
         val key = scopeKey(scopeName)
-        val existing = prefs.getStringSet(key, emptySet())!!.toMutableSet()
-        existing.add(encodeEntry(featureKey, command))
-        prefs.edit().putStringSet(key, existing).apply()
+        val jsonArray = getJsonArray(key)
+        jsonArray.put(encodeEntry(featureKey, command))
+        prefs.edit().putString(key, jsonArray.toString()).apply()
     }
 
     override fun loadAll(scopeName: String): Map<String, List<PersistedCommand>> {
         val key = scopeKey(scopeName)
-        val entries = prefs.getStringSet(key, emptySet()) ?: return emptyMap()
+        val jsonArray = getJsonArray(key)
         val result = mutableMapOf<String, MutableList<PersistedCommand>>()
 
-        for (entry in entries) {
+        for (i in 0 until jsonArray.length()) {
+            val entry = jsonArray.optString(i) ?: continue
             val decoded = decodeEntry(entry) ?: continue
             result.getOrPut(decoded.first) { mutableListOf() }.add(decoded.second)
         }
@@ -65,9 +69,27 @@ class SharedPreferencesPersistenceAdapter(
 
     override fun remove(scopeName: String, featureKey: String, command: PersistedCommand) {
         val key = scopeKey(scopeName)
-        val existing = prefs.getStringSet(key, emptySet())!!.toMutableSet()
-        existing.remove(encodeEntry(featureKey, command))
-        prefs.edit().putStringSet(key, existing).apply()
+        val jsonArray = getJsonArray(key)
+        val entryToRemove = encodeEntry(featureKey, command)
+        
+        val newArray = JSONArray()
+        for (i in 0 until jsonArray.length()) {
+            val entry = jsonArray.optString(i)
+            if (entry != null && entry != entryToRemove) {
+                newArray.put(entry)
+            }
+        }
+        
+        prefs.edit().putString(key, newArray.toString()).apply()
+    }
+
+    private fun getJsonArray(key: String): JSONArray {
+        val jsonStr = prefs.getString(key, "[]") ?: "[]"
+        return try {
+            JSONArray(jsonStr)
+        } catch (e: JSONException) {
+            JSONArray()
+        }
     }
 
     override fun clearScope(scopeName: String) {

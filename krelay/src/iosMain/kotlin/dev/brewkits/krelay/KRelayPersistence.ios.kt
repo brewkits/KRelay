@@ -43,8 +43,17 @@ class NSUserDefaultsPersistenceAdapter : KRelayPersistenceAdapter {
 
     private val defaults = NSUserDefaults.standardUserDefaults
 
+    private fun trackScopeKey(key: String) {
+        val keys = (defaults.arrayForKey(ALL_SCOPES_KEY) as? List<String>)?.toMutableList() ?: mutableListOf()
+        if (!keys.contains(key)) {
+            keys.add(key)
+            defaults.setObject(keys, ALL_SCOPES_KEY)
+        }
+    }
+
     override fun save(scopeName: String, featureKey: String, command: PersistedCommand) {
         val key = scopeKey(scopeName)
+        trackScopeKey(key)
         val existing = loadRawEntries(key).toMutableList()
         existing.add(encodeEntry(featureKey, command))
         defaults.setObject(existing, key)
@@ -70,15 +79,19 @@ class NSUserDefaultsPersistenceAdapter : KRelayPersistenceAdapter {
     }
 
     override fun clearScope(scopeName: String) {
-        defaults.removeObjectForKey(scopeKey(scopeName))
+        val key = scopeKey(scopeName)
+        defaults.removeObjectForKey(key)
+        
+        val keys = (defaults.arrayForKey(ALL_SCOPES_KEY) as? List<String>)?.toMutableList()
+        if (keys != null && keys.remove(key)) {
+            defaults.setObject(keys, ALL_SCOPES_KEY)
+        }
     }
 
     override fun clearAll() {
-        // Only remove KRelay keys — don't wipe unrelated user defaults
-        val allKeys = defaults.dictionaryRepresentation().keys
-            .filterIsInstance<String>()
-            .filter { it.startsWith(KEY_PREFIX) }
-        allKeys.forEach { defaults.removeObjectForKey(it) }
+        val keys = defaults.arrayForKey(ALL_SCOPES_KEY) as? List<String>
+        keys?.forEach { defaults.removeObjectForKey(it) }
+        defaults.removeObjectForKey(ALL_SCOPES_KEY)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -110,5 +123,6 @@ class NSUserDefaultsPersistenceAdapter : KRelayPersistenceAdapter {
 
     companion object {
         private const val KEY_PREFIX = "krelay_"
+        private const val ALL_SCOPES_KEY = "krelay_all_scopes_registry"
     }
 }
