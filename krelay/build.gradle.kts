@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "dev.brewkits"
-version = "2.1.1"
+version = "2.5.0"
 
 kotlin {
     androidTarget {
@@ -20,6 +20,11 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_11)
         }
         publishLibraryVariants("release")
+    }
+
+    jvm() // Desktop target
+    wasmJs {
+        browser()
     }
 
     // iOS targets - publish each as separate artifact

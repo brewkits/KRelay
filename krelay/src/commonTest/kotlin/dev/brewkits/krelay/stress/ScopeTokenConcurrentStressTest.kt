@@ -1,8 +1,10 @@
 package dev.brewkits.krelay.stress
 
 import dev.brewkits.krelay.*
+import dev.brewkits.krelay.runTestBlocking
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.*
+
 import kotlin.test.*
 
 /**
@@ -41,14 +43,14 @@ class ScopeTokenConcurrentStressTest {
      * continuously calls cancelScope. Verifies no CME / crash.
      */
     @Test
-    fun stress_concurrentDispatchAndCancelScope_noCorruption() = runBlocking {
-        val tokens = (0 until 20).map { scopedToken() }
+    fun stress_concurrentDispatchAndCancelScope_noCorruption() = runTestBlocking {
+        val tokens = (0 until 50).map { scopedToken() }
         val cancelCount = atomic(0)
 
-        // 20 goroutines each dispatching 200 actions with their own token
+        // 50 goroutines each dispatching 500 actions with their own token
         val dispatchJobs = tokens.map { token ->
             launch(Dispatchers.Default) {
-                repeat(200) { i ->
+                repeat(500) { i ->
                     try {
                         instance.dispatch<WorkFeature>(token) { it.run("$token-$i") }
                     } catch (e: Exception) {
@@ -87,7 +89,7 @@ class ScopeTokenConcurrentStressTest {
      * Verifies that the mock impl only receives valid actions and count is consistent.
      */
     @Test
-    fun stress_concurrentDispatchCancelAndRegister_consistentState() = runBlocking {
+    fun stress_concurrentDispatchCancelAndRegister_consistentState() = runTestBlocking {
         val received = atomic(0)
         val tokens = (0 until 10).map { scopedToken() }
 
@@ -123,7 +125,7 @@ class ScopeTokenConcurrentStressTest {
      * cancelScope while dispatches are in flight — no deadlock or crash.
      */
     @Test
-    fun stress_sameTokenConcurrentDispatchAndCancel_noDeadlock() = runBlocking {
+    fun stress_sameTokenConcurrentDispatchAndCancel_noDeadlock() = runTestBlocking {
         val sharedToken = scopedToken()
 
         val dispatchJob = launch(Dispatchers.Default) {
@@ -158,7 +160,7 @@ class ScopeTokenConcurrentStressTest {
      * getPendingCount for platform independence across Android and iOS.
      */
     @Test
-    fun stress_afterCancelScope_freshRegisterReceivesCorrectCount() = runBlocking {
+    fun stress_afterCancelScope_freshRegisterReceivesCorrectCount() = runTestBlocking {
         val tokens = (0 until 5).map { scopedToken() }
         val taggedPerToken = 30
         val untaggedCount = 20

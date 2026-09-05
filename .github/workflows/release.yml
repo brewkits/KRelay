@@ -48,14 +48,16 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
       - uses: gradle/actions/setup-gradle@v3
-      - name: Run unit tests
-        run: ./gradlew :krelay:testDebugUnitTest --no-daemon
+      - name: Run unit tests (Android & JVM & Wasm)
+        run: ./gradlew :krelay:testDebugUnitTest :krelay:jvmTest :krelay:wasmJsBrowserTest :krelay-flow:testDebugUnitTest :krelay-flow:jvmTest :krelay-flow:wasmJsBrowserTest --no-daemon
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: jvm-test-results
-          path: krelay/build/reports/tests/
+          name: jvm-wasm-test-results
+          path: |
+            krelay/build/reports/tests/
+            krelay/build/reports/wasmJs/
 
   # ──────────────────────────────────────────────────────────────────────────
   test-ios:
@@ -107,6 +109,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v3
       - name: Build krelay
         run: ./gradlew :krelay:assemble --no-daemon
+      - name: Build krelay-flow
+        run: ./gradlew :krelay-flow:assemble --no-daemon
       - name: Build krelay-compose
         run: ./gradlew :krelay-compose:assemble --no-daemon
       - name: Build krelay-testing
@@ -141,6 +145,14 @@ jobs:
 
       - name: Publish krelay
         run: ./gradlew :krelay:publishAllPublicationsToOSSRHRepository --no-daemon
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+
+      - name: Publish krelay-flow
+        run: ./gradlew :krelay-flow:publishAllPublicationsToOSSRHRepository --no-daemon
         env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}

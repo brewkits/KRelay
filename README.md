@@ -6,11 +6,12 @@
 
 ### Type-safe native interop bridge for Kotlin Multiplatform.
 
-Dispatch UI commands (Toast, Navigation, Permissions) from shared ViewModels to Android and iOS — leak-free, rotation-safe, always on the Main Thread.
+Dispatch UI commands (Toast, Navigation, Permissions) from shared ViewModels to Android, iOS, Desktop JVM, and Web (WasmJs) — leak-free, rotation-safe, always on the Main Thread.
 
 [![Maven Central](https://img.shields.io/maven-central/v/dev.brewkits/krelay.svg?label=Maven%20Central&color=brightgreen)](https://central.sonatype.com/artifact/dev.brewkits/krelay)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.1.x-blue.svg?logo=kotlin)](http://kotlinlang.org)
 [![KMP](https://img.shields.io/badge/Kotlin-Multiplatform-orange.svg)](https://kotlinlang.org/docs/multiplatform.html)
+[![Targets](https://img.shields.io/badge/Targets-Android%20%7C%20iOS%20%7C%20JVM%20%7C%20WasmJs-blue.svg)](#)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)](krelay/build.gradle.kts)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
@@ -56,11 +57,12 @@ KRelay now provides a **Bill of Materials (BOM)** to automatically align version
 sourceSets {
     commonMain.dependencies {
         // 1. (Recommended) Import the BOM
-        api(platform("dev.brewkits:krelay-bom:2.1.1"))
+        api(platform("dev.brewkits:krelay-bom:2.5.0"))
         
         // 2. Add dependencies without specifying versions
         implementation("dev.brewkits:krelay")
         implementation("dev.brewkits:krelay-compose") // Optional: Compose helpers
+        implementation("dev.brewkits:krelay-flow")    // Optional: Flow operators (v2.5.0+)
     }
     commonTest.dependencies {
         implementation("dev.brewkits:krelay-testing") // Optional: Test fakes and assertions
@@ -380,14 +382,15 @@ See [Integration Guides](docs/INTEGRATION_GUIDES.md) for step-by-step examples.
 
 ## Compatibility
 
-| KRelay | Kotlin | AGP | Android minSdk | iOS |
-|---|---|---|---|---|
-| 2.1.x | 2.1.x | 8.x | 24 | 14.0+ |
-| 2.0.x | 2.1.x | 8.x | 24 | 14.0+ |
-| 1.1.x | 2.0.x | 8.x | 23 | 13.0+ |
-| 1.0.x | 1.9.x | 7.x | 21 | 13.0+ |
+| KRelay | Kotlin | AGP | Android minSdk | iOS | Desktop (JVM) | WasmJs |
+|---|---|---|---|---|---|---|
+| 2.2.x | 2.1.x | 8.x | 24 | 14.0+ | ✅ | ✅ |
+| 2.1.x | 2.1.x | 8.x | 24 | 14.0+ | — | — |
+| 2.0.x | 2.1.x | 8.x | 24 | 14.0+ | — | — |
+| 1.1.x | 2.0.x | 8.x | 23 | 13.0+ | — | — |
+| 1.0.x | 1.9.x | 7.x | 21 | 13.0+ | — | — |
 
-**Platforms:** Android arm64 · Android x86\_64 · iOS arm64 (device) · iOS arm64 (simulator) · iOS x64 (simulator)
+**Platforms:** Android arm64 · Android x86\_64 · iOS arm64 (device) · iOS arm64 (simulator) · iOS x64 (simulator) · JVM Desktop (macOS, Windows, Linux) · WasmJs Browser
 
 ---
 
