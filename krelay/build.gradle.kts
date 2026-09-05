@@ -161,7 +161,7 @@ publishing {
         // Local staging repository for verification before publishing
         maven {
             name = "MavenCentralLocal"
-            url = uri("${layout.buildDirectory.get()}/maven-central-staging")
+            url = uri("${rootProject.layout.buildDirectory.get()}/maven-central-staging")
         }
 
         // Maven Central (Sonatype OSSRH)

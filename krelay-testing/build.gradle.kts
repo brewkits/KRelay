@@ -95,6 +95,11 @@ publishing {
 
     repositories {
         maven {
+            name = "MavenCentralLocal"
+            url = uri("${rootProject.layout.buildDirectory.get()}/maven-central-staging")
+        }
+
+        maven {
             name = "OSSRH"
             val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
             val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")

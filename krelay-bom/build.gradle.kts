@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("java-platform")
     id("maven-publish")
@@ -54,6 +56,11 @@ publishing {
 
     repositories {
         maven {
+            name = "MavenCentralLocal"
+            url = uri("${rootProject.layout.buildDirectory.get()}/maven-central-staging")
+        }
+
+        maven {
             name = "OSSRH"
             val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
             val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
@@ -71,7 +78,7 @@ signing {
     val signingPassword = findProperty("signing.password")?.toString() ?: System.getenv("SIGNING_PASSWORD")
     if (rawKey != null && signingPassword != null) {
         val decoded = try {
-            val d = String(java.util.Base64.getDecoder().decode(rawKey))
+            val d = String(Base64.getDecoder().decode(rawKey))
             if (d.contains("-----BEGIN PGP")) d else rawKey
         } catch (_: Exception) { rawKey }
         useInMemoryPgpKeys(decoded, signingPassword)
