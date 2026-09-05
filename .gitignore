@@ -92,3 +92,6 @@ CHECKSUMS_*.txt
 MANUAL_UPLOAD_INSTRUCTIONS*.md
 MAVEN_ARTIFACTS_*.md
 docs/MAVEN_CENTRAL_SETUP.md
+
+# Claude Code local files
+CLAUDE.md

@@ -35,20 +35,37 @@
 - CI/CD via GitHub Actions
 - Fixed: KRelayMetrics wiring, iOS KClass bridging, Voyager lifecycle crash, Android 15+ 16KB page alignment
 
+### v2.1.1 — QA Hardening & Ecosystem Infrastructure *(Sep 2026)*
+- **Critical fix**: Android `SharedPreferences` `StringSet` mutation bug (data loss in `dispatchPersisted`)
+- **Critical fix**: TOCTOU race condition in `reset()` and `setPersistenceAdapter()`
+- **Performance**: `NSUserDefaults.clearAll()` O(N) → O(K); O(1) queue eviction; O(log N) binary insertion
+- **New**: `KRelay.removeInstance(scopeName)` — explicit Super App lifecycle management
+- **New**: `KRelayEffect` / `rememberKRelayImpl` `vararg keys` for recomposition safety
+- **New**: `krelay-testing` artifact — `FakeKRelayInstance`, `KRelayTestRule`, `executeLastDispatch`
+- **New**: `krelay-bom` — Bill of Materials for version alignment
+- **New**: `KRelay.dispatchWithPriority<T>()` public reified API
+- **New**: Binary Compatibility Validator (BCV) integrated; `apiCheck` runs in CI
+- **New**: `release.yml` CD workflow triggered by git tags
+- **New**: GitHub Issue Templates, `CONTRIBUTING.md`, `SECURITY.md`
+- Decompose upgraded to `3.4.0-alpha03` (iOS linker fix)
+
 ---
 
 ## 🔭 Planned
 
-### v2.2.0 — Desktop & Web *(Q3 2026)*
-- JVM Desktop support (Compose Desktop — Windows, macOS, Linux)
-- Kotlin/JS and Kotlin/Wasm targets
+### v2.2.0 — Desktop, Web & Ecosystem Adapters *(Q4 2026)*
+- **JVM Desktop** support: `macosArm64`, `macosX64`, `mingwX64`, `linuxX64` (Compose Desktop)
+- **Kotlin/Wasm** target for web use-cases
+- **`krelay-flow` artifact**: Official Kotlin Coroutines Flow adapter — bridge `KRelayInstance` to `StateFlow`/`SharedFlow` without boilerplate
+- **`dispatchPersistedSuspend`**: Suspend overload for `dispatchPersisted`, callable from coroutine scopes
+- **Library-specific integration modules** (community-driven): `krelay-moko`, `krelay-voyager`
 
-### v2.3.0 — Observability *(Q4 2026)*
-- `KRelayMetrics` dashboard: dispatch rate, queue depth, replay count
-- Structured logging with configurable sinks
-- Integration with popular monitoring tools
+### v2.3.0 — Observability *(Q1 2027)*
+- `KRelayMetrics` reporter: export to Firebase Performance, Datadog, or custom sinks
+- Structured logging with configurable severity and sinks
+- Integration guide with popular monitoring tools
 
-### v3.0.0 — TBD *(2027)*
+### v3.0.0 — TBD *(2027+)*
 No breaking changes are currently planned. If a v3 happens, a full migration guide will be provided well in advance.
 
 ---
@@ -73,4 +90,4 @@ Issues, PRs, and discussions are welcome at [github.com/brewkits/KRelay](https:/
 
 ---
 
-**Current Version**: v2.1.0 · **Last Updated**: 2026-03-16
+**Current Version**: v2.1.1 · **Last Updated**: 2026-09-05

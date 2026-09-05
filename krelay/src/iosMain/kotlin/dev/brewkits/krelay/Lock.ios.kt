@@ -11,8 +11,8 @@ import platform.Foundation.NSRecursiveLock
  * 3. **Simplicity**: Pure object-oriented API vs C-style pthread
  * 4. **Performance**: Sufficient for UI-thread synchronization tasks
  *
- * This is critical for future instance-based KRelay (v2.0) where multiple
- * RelayHub instances may be created and destroyed during app lifecycle.
+ * This is critical for KRelayInstance where multiple
+ * instances may be created and destroyed during app lifecycle.
  */
 actual class Lock {
     private val lock = NSRecursiveLock()

@@ -9,7 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.1.1] - 2026-04-06
+## [2.1.1] - 2026-09-05
+
+### Added
+- **`KRelay.removeInstance(scopeName)`**: New public API to explicitly remove a named instance from the global registry. Called automatically by `KRelayInstanceImpl.reset()` to eliminate memory leaks in Super App / Micro-frontend architectures where instances are created and destroyed with feature module lifecycles.
+- **Per-instance scoped metrics**: `KRelayMetrics` now accepts a `scopeName` parameter on all `record*` methods, enabling precise per-module monitoring in multi-instance deployments.
+- **Thread-safe `setPersistenceAdapter`**: Wrapping the adapter assignment inside `lock.withLock` ensures atomic replacement with no data race when swapping adapters at runtime.
+- **`KRelayEffect` / `rememberKRelayImpl` `keys` parameter**: Both Compose helpers now accept a `vararg keys: Any?` argument (analogous to `remember` keys) so the implementation is automatically unregistered and re-registered whenever a captured dependency changes during recomposition.
+- **UI instrumented tests for `krelay-compose`**: New `KRelayComposeTest` in `androidInstrumentedTest` verifies `KRelayEffect` lifecycle (register on enter, unregister on dispose) and `rememberKRelayImpl` key-driven re-registration.
+
+### Fixed
+- **Android `SharedPreferences` `StringSet` mutation bug (Critical)**: `getStringSet` returns an internal mutable reference; mutating it causes undefined behavior per the Android documentation. Migrated persistence storage to a `JSONArray`-encoded single String, eliminating data loss and ordering issues in `dispatchPersisted`.
+- **TOCTOU race in `reset()`**: Captured the `_persistenceAdapter` reference inside `lock.withLock` before performing I/O, closing the time-of-check to time-of-use window that could leave a stale adapter in use after `setPersistenceAdapter` was called concurrently.
+- **iOS `NSUserDefaults.clearAll()` O(N) scan**: `clearAll` previously iterated the entire `NSUserDefaults` dictionary to find scope-prefixed keys (O(N) over the whole user defaults store). Now tracks scope keys via a dedicated `ALL_SCOPES_KEY` index for O(K) cleanup (K = number of scopes).
+- **O(1) queue eviction**: `enqueueActionUnderLock` now removes the lowest-priority item directly by index (`removeAt(lastIndex)`) instead of a linear search, reducing eviction cost from O(N) to O(1).
+- **Binary insertion for priority queue**: Incoming actions are inserted at the correct sorted position using `binarySearch` (O(log N)) rather than appending and re-sorting the entire list (O(N log N)).
+- **`kotlinSerialization` plugin regression**: The plugin was incorrectly removed in a cleanup pass; it is required by Decompose for `@Serializable` navigation state restoration and has been restored.
+
+### Changed
+- **Decompose upgraded to `3.4.0-alpha03`**: Resolves the iOS Native Linker crash (`SkikoKey` missing symbol) introduced by Compose Multiplatform `1.8.0-alpha03` / Decompose `3.2.0` binary incompatibility.
+- **`composeApp` namespace**: Corrected to `dev.brewkits.krelay.demo` to avoid package collisions.
+- **`composeApp` R8 minification enabled**: `isMinifyEnabled = true` and `isShrinkResources = true` are now active for release builds.
+- **`consumer-rules.pro` tightened**: Removed keep rules for the deleted `MainThreadExecutor` class; narrowed `QueuedAction` keep rules to only the fields accessed via reflection.
+- **`kotlin.native.cacheKind=none`**: Added to `gradle.properties` as a workaround for the Kotlin 2.1.0 Native compiler `NullPointerException` in `CacheBuilderKt` when linking iOS test binaries against Compose Multiplatform `1.8.0-alpha03`.
+
+---
+
+## [2.1.0-Changes] - 2026-04-06
 
 ### Added
 - **Hardened Concurrency Safety**: Persisted dispatch is now fully atomic. The decision to enqueue (impl lookup + queue insertion) happens inside a single lock, eliminating the TOCTOU race where `register()` completing between the check and the enqueue would leave an action stranded. Persistence I/O (`save`/`remove`) is intentionally performed *outside* the lock so disk latency cannot block other threads.
@@ -191,7 +217,8 @@ None. This release is fully backward compatible with v1.x.
 
 ---
 
-[Unreleased]: https://github.com/brewkits/KRelay/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/brewkits/KRelay/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/brewkits/KRelay/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/brewkits/KRelay/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/brewkits/KRelay/releases/tag/v2.0.0
 [1.1.0]: https://github.com/brewkits/KRelay/releases/tag/v1.1.0

@@ -36,10 +36,11 @@ import dev.brewkits.krelay.unregister
  */
 @Composable
 inline fun <reified T : RelayFeature> KRelayEffect(
+    vararg keys: Any?,
     instance: KRelayInstance = KRelay.instance,
     crossinline factory: () -> T
 ) {
-    val impl = remember { factory() }
+    val impl = remember(*keys) { factory() }
     DisposableEffect(impl, instance) {
         instance.register<T>(impl)
         onDispose { instance.unregister<T>(impl) }
@@ -73,10 +74,11 @@ inline fun <reified T : RelayFeature> KRelayEffect(
  */
 @Composable
 inline fun <reified T : RelayFeature> rememberKRelayImpl(
+    vararg keys: Any?,
     instance: KRelayInstance = KRelay.instance,
     crossinline factory: () -> T
 ): T {
-    val impl = remember { factory() }
+    val impl = remember(*keys) { factory() }
     DisposableEffect(impl, instance) {
         instance.register<T>(impl)
         onDispose { instance.unregister<T>(impl) }

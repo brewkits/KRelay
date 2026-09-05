@@ -1,0 +1,9 @@
+---
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions — Q&A and Ideas
+    url: https://github.com/brewkits/KRelay/discussions
+    about: For general questions, ideas, or showing off what you built with KRelay.
+  - name: 📖 Documentation
+    url: https://github.com/brewkits/KRelay/tree/main/docs
+    about: Read the full documentation before filing a bug.

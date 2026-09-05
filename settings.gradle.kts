@@ -34,3 +34,5 @@ dependencyResolutionManagement {
 include(":composeApp")
 include(":krelay")
 include(":krelay-compose")
+include(":krelay-testing")
+include(":krelay-bom")

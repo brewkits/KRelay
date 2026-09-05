@@ -13,6 +13,7 @@ androidx-testExt = "1.3.0"
 composeMultiplatform = "1.8.0-alpha03"
 junit = "4.13.2"
 kotlin = "2.1.0"
+bcv = "0.17.0"
 material3 = "1.8.0-alpha03"
 
 # Integration libraries
@@ -21,8 +22,9 @@ moko-biometry = "0.4.0"
 peekaboo = "0.5.2"
 playcore-review = "2.0.1"
 biometric = "1.1.0"
-decompose = "3.2.0"
-decompose-extensions = "3.2.0"
+decompose = "3.4.0-alpha03"
+decompose-extensions = "3.4.0-alpha03"
+voyager = "1.1.0-beta03"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -55,6 +57,8 @@ playcore-review-ktx = { module = "com.google.android.play:review-ktx", version.r
 androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 decompose = { module = "com.arkivanov.decompose:decompose", version.ref = "decompose" }
 decompose-compose = { module = "com.arkivanov.decompose:extensions-compose", version.ref = "decompose-extensions" }
+voyager-navigator = { module = "cafe.adriel.voyager:voyager-navigator", version.ref = "voyager" }
+voyager-transitions = { module = "cafe.adriel.voyager:voyager-transitions", version.ref = "voyager" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -64,3 +68,4 @@ composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "k
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
+bcv = { id = "org.jetbrains.kotlinx.binary-compatibility-validator", version.ref = "bcv" }
