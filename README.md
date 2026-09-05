@@ -48,20 +48,28 @@ Read the [State vs. Event: Why your MVI/Redux app is probably leaking side-effec
 
 ---
 
-## When to Use (and When NOT to Use) KRelay: Market Reality
+## When to Use & When NOT to Use KRelay
 
-> [!NOTE]
-> **If you are building a standard CRUD app, you do NOT need KRelay.**  
-> Standard Kotlin Coroutines (`StateFlow` for state, `Channel` for single-shot events) are completely sufficient and introduce zero external dependencies.
+### 🛑 When NOT to Use KRelay
+- **Standard CRUD Applications:** If your app consists of typical REST/GraphQL data fetching, list views, and straightforward state rendering, you do **NOT** need KRelay. Standard Kotlin Coroutines (`StateFlow` for state, `Channel` for single-shot UI events) are completely sufficient and introduce zero external dependencies.
+- **Synchronous Returns or Business Logic:** KRelay is strictly for fire-and-forget UI intents. Never use it for queries, database operations, or operations needing return values.
 
-KRelay is purpose-built for **two specific, high-complexity architectural scenarios**:
+| Scenario | Better Alternative | Why |
+|---|---|---|
+| Standard CRUD UI Events | `Channel<UiEvent>` / `SharedFlow` | Simpler, standard Kotlin idioms, zero dependencies |
+| Need a return value | `suspend fun` + `expect/actual` | KRelay is fire-and-forget; cannot return results |
+| Reactive UI state | `StateFlow` / `MutableStateFlow` | State is for seeing; events are for running |
+| Critical side-effects (payment, upload) | `WorkManager` / iOS Background Tasks | KRelay queue is memory-based; lost on process death |
+| Database / Network | Room / SQLDelight / Ktor | Core business architecture belongs in Repositories |
 
-### 1. Complex Native Platform Interop Without Coroutine Bindings
+### ✅ When KRelay Shines (The Two Real-World Scenarios)
+
+#### 1. Complex Native Platform Interop Without Coroutine Bindings
 When shared business logic must trigger platform APIs tightly coupled to the active `Activity` or `UIViewController` lifecycle:
 - **Real-world Examples:** In-App Review (`Google Play Core` / Apple `StoreKit`), Native Biometric Prompts (`AndroidX Biometric` / iOS `LocalAuthentication`), Photo Picker intents, or Push notification system bridges.
 - **Why not standard Flow?** Passing callbacks or maintaining custom `expect/actual` interfaces through 4–5 architectural layers (ViewModel → UseCase → Repository → Activity) creates fragile boilerplate and lifecycle leaks. With KRelay, the platform Activity or Composable dynamically registers when resumed and unregisters when disposed. KRelay buffers commands in its sticky queue during rotations or screen transitions, dispatching them the moment the native UI is ready.
 
-### 2. Multi-Team Modular Architectures & Super Apps (Micro-Apps)
+#### 2. Multi-Team Modular Architectures & Super Apps (Micro-Apps)
 In large, enterprise-scale codebases where independent feature modules run under a single host shell:
 - **Real-world Examples:** Team A (`Ride`) and Team B (`Food`) running inside the same Super App (e.g., Grab, Uber, Gojek). Modules are strictly forbidden from having compile-time dependencies on each other.
 - **Why KRelay?** KRelay provides isolated, namespaced instances (`KRelay.create("Rides")` vs. `KRelay.create("Food")`) with `ScopeToken` lifecycle guards. Feature teams dispatch cross-boundary intents dynamically without direct compile-time coupling or global event bus collision.
@@ -367,19 +375,6 @@ class MyViewModel : ViewModel() {
 }
 ```
 
----
-
-## When not to use KRelay
-
-KRelay is for **one-way, fire-and-forget UI commands**. For anything else, use the right tool:
-
-| Scenario | Better alternative |
-|---|---|
-| Need a return value | `suspend fun` + `expect/actual` |
-| Reactive UI state | `StateFlow` / `MutableStateFlow` |
-| Critical side-effects (payment, upload) | `WorkManager` / background service |
-| Database | Room / SQLDelight |
-| Network | Ktor + Repository |
 
 ---
 
