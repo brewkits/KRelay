@@ -161,7 +161,8 @@ internal class KRelayInstanceImpl(
     override fun <T : RelayFeature> dispatchWithPriority(
         kClass: KClass<T>,
         priorityValue: Int,
-        block: (T) -> Unit
+        block: (T) -> Unit,
+        scopeToken: String?
     ) {
         val impl: T? = lock.withLock {
             val found = registry[kClass]?.get() as? T
@@ -169,7 +170,7 @@ internal class KRelayInstanceImpl(
                 if (debugMode) log("[QUEUE] Implementation missing for ${kClass.simpleName}. Queuing with priority $priorityValue...")
                 enqueueActionUnderLock(
                     kClass,
-                    QueuedAction(action = { instance -> block(instance as T) }, priority = priorityValue),
+                    QueuedAction(action = { instance -> block(instance as T) }, priority = priorityValue, scopeToken = scopeToken),
                     evictByPriority = true
                 )
             } else {

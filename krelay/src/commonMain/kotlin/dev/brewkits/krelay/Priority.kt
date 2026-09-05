@@ -39,38 +39,3 @@ enum class ActionPriority(val value: Int) {
     }
 }
 
-/**
- * Dispatches an action with a specific priority.
- *
- * Higher priority actions will be replayed first when the implementation
- * becomes available.
- *
- * @param priority The priority level for this action
- * @param block The action to execute
- */
-@ProcessDeathUnsafe
-@MemoryLeakWarning
-inline fun <reified T : RelayFeature> KRelay.dispatchWithPriority(
-    priority: ActionPriority,
-    noinline block: (T) -> Unit
-) {
-    defaultInstance.dispatchWithPriority(T::class, priority.value, block)
-}
-
-/**
- * Dispatches an action with a specific priority on a [KRelayInstance].
- *
- * Higher priority actions will be replayed first when the implementation becomes available.
- * This method is consistent with [KRelay.dispatchWithPriority] for the singleton API.
- *
- * @param priority The priority level for this action
- * @param block The action to execute
- */
-@ProcessDeathUnsafe
-@MemoryLeakWarning
-inline fun <reified T : RelayFeature> KRelayInstance.dispatchWithPriority(
-    priority: ActionPriority,
-    noinline block: (T) -> Unit
-) {
-    this.dispatchWithPriority(T::class, priority.value, block)
-}

@@ -118,9 +118,9 @@ object KRelay {
 
     /**
      * Dispatches an action tagged with a [scopeToken].
-     * 
+     *
      * Tagged actions can be cancelled in bulk using [cancelScope].
-     * 
+     *
      * @param scopeToken A unique identifier for the caller (e.g., from [scopedToken]).
      * @param block The lambda to execute.
      */
@@ -132,6 +132,49 @@ object KRelay {
     ) {
         defaultInstance.dispatch(T::class, block, scopeToken)
     }
+
+    /**
+     * Dispatches an action with an explicit [ActionPriority] to the registered implementation of feature [T].
+     *
+     * Higher-priority actions are dequeued first when the implementation registers.
+     * If the queue is full, the **lowest**-priority action is evicted.
+     *
+     * @param priority The priority of this action. Defaults to [ActionPriority.NORMAL].
+     * @param block The lambda to execute on the platform implementation.
+     *
+     * ## Example
+     * ```kotlin
+     * KRelay.dispatchWithPriority<ToastFeature>(ActionPriority.CRITICAL) {
+     *     it.show("Critical error occurred!")
+     * }
+     * ```
+     */
+    @ProcessDeathUnsafe
+    @MemoryLeakWarning
+    inline fun <reified T : RelayFeature> dispatchWithPriority(
+        priority: ActionPriority = ActionPriority.NORMAL,
+        noinline block: (T) -> Unit
+    ) {
+        defaultInstance.dispatchWithPriority(T::class, priority.value, block)
+    }
+
+    /**
+     * Dispatches an action with explicit [ActionPriority] and a [scopeToken].
+     *
+     * @param priority The priority of this action.
+     * @param scopeToken A unique identifier for the caller.
+     * @param block The lambda to execute.
+     */
+    @ProcessDeathUnsafe
+    @MemoryLeakWarning
+    inline fun <reified T : RelayFeature> dispatchWithPriority(
+        priority: ActionPriority = ActionPriority.NORMAL,
+        scopeToken: String,
+        noinline block: (T) -> Unit
+    ) {
+        defaultInstance.dispatchWithPriority(T::class, priority.value, block, scopeToken)
+    }
+
 
     /**
      * Cancels all queued actions that match the provided [token].
@@ -400,6 +443,38 @@ inline fun <reified T : RelayFeature> KRelayInstance.getPendingCount(): Int {
  */
 inline fun <reified T : RelayFeature> KRelayInstance.clearQueue() {
     this.clearQueue(T::class)
+}
+
+/**
+ * Type-safe priority dispatch for [KRelayInstance].
+ *
+ * @param priority The priority of this action. Defaults to [ActionPriority.NORMAL].
+ * @param block The lambda to execute on the platform implementation.
+ */
+@ProcessDeathUnsafe
+@MemoryLeakWarning
+inline fun <reified T : RelayFeature> KRelayInstance.dispatchWithPriority(
+    priority: ActionPriority = ActionPriority.NORMAL,
+    noinline block: (T) -> Unit
+) {
+    this.dispatchWithPriority(T::class, priority.value, block)
+}
+
+/**
+ * Type-safe priority dispatch with scope token for [KRelayInstance].
+ *
+ * @param priority The priority of this action.
+ * @param scopeToken A unique identifier for the caller.
+ * @param block The lambda to execute.
+ */
+@ProcessDeathUnsafe
+@MemoryLeakWarning
+inline fun <reified T : RelayFeature> KRelayInstance.dispatchWithPriority(
+    priority: ActionPriority = ActionPriority.NORMAL,
+    scopeToken: String,
+    noinline block: (T) -> Unit
+) {
+    this.dispatchWithPriority(T::class, priority.value, block, scopeToken)
 }
 
 // ============================================================

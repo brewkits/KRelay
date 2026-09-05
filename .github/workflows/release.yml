@@ -1,0 +1,197 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+  contents: write  # needed to upload release assets
+
+jobs:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  validate:
+    name: Validate tag matches library version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse version from tag
+        id: parse
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing version: $VERSION"
+      - name: Verify version in krelay/build.gradle.kts
+        run: |
+          VERSION="${{ steps.parse.outputs.version }}"
+          if ! grep -q "version = \"$VERSION\"" krelay/build.gradle.kts; then
+            echo "ERROR: Tag version '$VERSION' does not match version in krelay/build.gradle.kts"
+            grep "^version" krelay/build.gradle.kts
+            exit 1
+          fi
+          echo "Version check passed: $VERSION"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  test-jvm:
+    name: Unit Tests (JVM)
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Run unit tests
+        run: ./gradlew :krelay:testDebugUnitTest --no-daemon
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jvm-test-results
+          path: krelay/build/reports/tests/
+
+  # ──────────────────────────────────────────────────────────────────────────
+  test-ios:
+    name: Unit Tests (iOS Simulator)
+    runs-on: macos-14
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Run iOS simulator tests
+        run: ./gradlew :krelay:iosSimulatorArm64Test --no-daemon
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results
+          path: krelay/build/reports/
+
+  # ──────────────────────────────────────────────────────────────────────────
+  api-check:
+    name: Binary Compatibility Check
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Check public API is unchanged
+        run: ./gradlew :krelay:apiCheck :krelay-compose:apiCheck --no-daemon
+
+  # ──────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build All Targets
+    runs-on: macos-14
+    needs: [ test-jvm, test-ios, api-check ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Build krelay
+        run: ./gradlew :krelay:assemble --no-daemon
+      - name: Build krelay-compose
+        run: ./gradlew :krelay-compose:assemble --no-daemon
+      - name: Build krelay-testing
+        run: ./gradlew :krelay-testing:assemble --no-daemon
+      - name: Build krelay-bom
+        run: ./gradlew :krelay-bom:assemble --no-daemon
+      - name: Build demo APK
+        run: ./gradlew :composeApp:assembleRelease --no-daemon
+      - name: Generate Dokka docs
+        run: ./gradlew :krelay:dokkaHtmlCustom --no-daemon
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: |
+            krelay/build/outputs/
+            krelay-compose/build/outputs/
+
+  # ──────────────────────────────────────────────────────────────────────────
+  publish:
+    name: Publish to Maven Central
+    runs-on: macos-14
+    needs: build
+    environment: maven-central
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - uses: gradle/actions/setup-gradle@v3
+
+      - name: Publish krelay
+        run: ./gradlew :krelay:publishAllPublicationsToOSSRHRepository --no-daemon
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+
+      - name: Publish krelay-compose
+        run: ./gradlew :krelay-compose:publishAllPublicationsToOSSRHRepository --no-daemon
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+
+      - name: Publish krelay-testing
+        run: ./gradlew :krelay-testing:publishAllPublicationsToOSSRHRepository --no-daemon
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+
+      - name: Publish krelay-bom
+        run: ./gradlew :krelay-bom:publishAllPublicationsToOSSRHRepository --no-daemon
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+
+  # ──────────────────────────────────────────────────────────────────────────
+  github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: publish
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract release notes from CHANGELOG.md
+        id: changelog
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          # Extract the block for this version from CHANGELOG.md
+          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$NOTES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "KRelay ${{ needs.validate.outputs.version }}"
+          body: ${{ steps.changelog.outputs.notes }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}

@@ -85,7 +85,8 @@ interface KRelayInstance {
     fun <T : RelayFeature> dispatchWithPriority(
         kClass: KClass<T>,
         priorityValue: Int,
-        block: (T) -> Unit
+        block: (T) -> Unit,
+        scopeToken: String? = null
     )
 
     /**

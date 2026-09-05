@@ -1,0 +1,74 @@
+---
+name: Feature Request
+description: Suggest an enhancement or new feature for KRelay
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a feature request, please check the [ROADMAP.md](../ROADMAP.md) and existing issues to avoid duplicates.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature Area
+      options:
+        - Core API (dispatch, register, queue)
+        - Persistence (dispatchPersisted)
+        - Compose Integration (krelay-compose)
+        - Testing (krelay-testing)
+        - Platform Support (new targets)
+        - Performance / Memory
+        - Developer Experience / DX
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Motivation
+      description: What problem are you trying to solve? Why is the current behavior insufficient?
+      placeholder: |
+        I'm always frustrated when...
+        Currently I have to work around this by...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see. Include API sketches if possible.
+      placeholder: |
+        ```kotlin
+        // Example of the proposed API
+        KRelay.dispatchSuspend<ToastFeature> { it.show("Hello") }
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or workarounds you've already tried?
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How critical is this for your project?
+      options:
+        - Blocking — cannot use KRelay without this
+        - High — significant workaround needed
+        - Medium — would improve my code quality
+        - Low — nice to have
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other context, use cases, or related issues.
