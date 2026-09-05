@@ -76,9 +76,7 @@ kotlin {
             api(project(":krelay"))
             implementation(project(":krelay-compose"))
         }
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
-        }
+        // commonTest block removed since demo tests cause iOS linker issues
     }
 }
 
