@@ -48,6 +48,26 @@ Read the [State vs. Event: Why your MVI/Redux app is probably leaking side-effec
 
 ---
 
+## When to Use (and When NOT to Use) KRelay: Market Reality
+
+> [!NOTE]
+> **If you are building a standard CRUD app, you do NOT need KRelay.**  
+> Standard Kotlin Coroutines (`StateFlow` for state, `Channel` for single-shot events) are completely sufficient and introduce zero external dependencies.
+
+KRelay is purpose-built for **two specific, high-complexity architectural scenarios**:
+
+### 1. Complex Native Platform Interop Without Coroutine Bindings
+When shared business logic must trigger platform APIs tightly coupled to the active `Activity` or `UIViewController` lifecycle:
+- **Real-world Examples:** In-App Review (`Google Play Core` / Apple `StoreKit`), Native Biometric Prompts (`AndroidX Biometric` / iOS `LocalAuthentication`), Photo Picker intents, or Push notification system bridges.
+- **Why not standard Flow?** Passing callbacks or maintaining custom `expect/actual` interfaces through 4–5 architectural layers (ViewModel → UseCase → Repository → Activity) creates fragile boilerplate and lifecycle leaks. With KRelay, the platform Activity or Composable dynamically registers when resumed and unregisters when disposed. KRelay buffers commands in its sticky queue during rotations or screen transitions, dispatching them the moment the native UI is ready.
+
+### 2. Multi-Team Modular Architectures & Super Apps (Micro-Apps)
+In large, enterprise-scale codebases where independent feature modules run under a single host shell:
+- **Real-world Examples:** Team A (`Ride`) and Team B (`Food`) running inside the same Super App (e.g., Grab, Uber, Gojek). Modules are strictly forbidden from having compile-time dependencies on each other.
+- **Why KRelay?** KRelay provides isolated, namespaced instances (`KRelay.create("Rides")` vs. `KRelay.create("Food")`) with `ScopeToken` lifecycle guards. Feature teams dispatch cross-boundary intents dynamically without direct compile-time coupling or global event bus collision.
+
+---
+
 ## Install
 
 KRelay now provides a **Bill of Materials (BOM)** to automatically align versions across all artifacts.
