@@ -34,8 +34,10 @@ fun VoyagerDemo(onBackClick: () -> Unit) {
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
-            // Create Voyager Navigator starting at LoginScreen
-            Navigator(LoginScreen(onBackToMenu = onBackClick)) { navigator ->
+            // Provide back-to-menu callback via CompositionLocal so screens don't hold lambdas
+            CompositionLocalProvider(LocalBackToMenu provides onBackClick) {
+                // Create Voyager Navigator starting at LoginScreen
+                Navigator(LoginScreen()) { navigator ->
 
                 val scope = rememberCoroutineScope()
 
@@ -76,4 +78,5 @@ fun VoyagerDemo(onBackClick: () -> Unit) {
             }
         }
     }
+}
 }

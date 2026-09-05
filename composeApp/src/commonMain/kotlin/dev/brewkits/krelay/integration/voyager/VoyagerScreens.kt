@@ -10,15 +10,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 
+val LocalBackToMenu = compositionLocalOf<() -> Unit> { {} }
+
 /**
  * Login Screen for Voyager Demo
  */
-data class LoginScreen(
-    val onBackToMenu: () -> Unit = {}
-) : Screen {
+class LoginScreen : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
+        val onBackToMenu = LocalBackToMenu.current
         val viewModel = remember { VoyagerLoginViewModel() }
 
         Scaffold(
@@ -124,12 +125,11 @@ data class LoginScreen(
 /**
  * Home Screen for Voyager Demo
  */
-data class HomeScreen(
-    val onBackToMenu: () -> Unit = {}
-) : Screen {
+class HomeScreen : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
+        val onBackToMenu = LocalBackToMenu.current
         val viewModel = remember { VoyagerHomeViewModel() }
 
         Scaffold(
@@ -221,12 +221,12 @@ data class HomeScreen(
  * Profile Screen for Voyager Demo
  */
 data class ProfileScreen(
-    val userId: String,
-    val onBackToMenu: () -> Unit = {}
+    val userId: String
 ) : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
+        val onBackToMenu = LocalBackToMenu.current
         val viewModel = remember { VoyagerProfileViewModel(userId) }
 
         Scaffold(
@@ -310,12 +310,11 @@ data class ProfileScreen(
 /**
  * Signup Screen for Voyager Demo
  */
-data class SignupScreen(
-    val onBackToMenu: () -> Unit = {}
-) : Screen {
+class SignupScreen : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
+        val onBackToMenu = LocalBackToMenu.current
         val viewModel = remember { VoyagerLoginViewModel() }
 
         Scaffold(

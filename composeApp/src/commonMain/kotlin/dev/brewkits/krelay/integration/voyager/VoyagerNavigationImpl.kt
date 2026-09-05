@@ -33,7 +33,7 @@ class VoyagerNavigationImpl(
 
         scope.launch {
             try {
-                navigator.replaceAll(HomeScreen(onBackToMenu = onBackToMenu))
+                navigator.replaceAll(HomeScreen())
                 println("   ✓ Navigation completed! Stack size: ${navigator.size}\n")
             } catch (e: Exception) {
                 println("   ❌ Navigation failed: ${e.message}")
@@ -50,7 +50,7 @@ class VoyagerNavigationImpl(
 
         scope.launch {
             try {
-                navigator.push(ProfileScreen(userId = userId, onBackToMenu = onBackToMenu))
+                navigator.push(ProfileScreen(userId = userId))
                 println("   ✓ Navigation completed! Stack size: ${navigator.size}\n")
             } catch (e: Exception) {
                 println("   ❌ Navigation failed: ${e.message}")
@@ -84,7 +84,7 @@ class VoyagerNavigationImpl(
 
         scope.launch {
             try {
-                navigator.replaceAll(LoginScreen(onBackToMenu = onBackToMenu))
+                navigator.replaceAll(LoginScreen())
                 println("   ✓ Navigation completed! Stack size: ${navigator.size}\n")
             } catch (e: Exception) {
                 println("   ❌ Navigation failed: ${e.message}")
@@ -101,7 +101,7 @@ class VoyagerNavigationImpl(
 
         scope.launch {
             try {
-                navigator.push(SignupScreen(onBackToMenu = onBackToMenu))
+                navigator.push(SignupScreen())
                 println("   ✓ Navigation completed! Stack size: ${navigator.size}\n")
             } catch (e: Exception) {
                 println("   ❌ Navigation failed: ${e.message}")
