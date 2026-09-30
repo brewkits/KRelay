@@ -52,50 +52,6 @@ fun IntegrationsDemo(onBackClick: () -> Unit) {
             // ALWAYS use REAL library implementations
             SetupRealIntegrations()
 
-            // Old mock implementation code removed
-            if (false) {
-                LaunchedEffect(Unit) {
-                println("\n╔════════════════════════════════════════════════════════════════╗")
-                println("║  🔌 INTEGRATIONS DEMO - Library Integration Setup            ║")
-                println("╚════════════════════════════════════════════════════════════════╝")
-                println("\n🔧 [IntegrationsDemo] Registering integration implementations...")
-                println("   → This demo shows KRelay as 'The Glue Code Standard'")
-                println("   → Demonstrating clean integration with:")
-                println("     • Moko Permissions (Permission management)")
-                println("     • Moko Biometry (Biometric auth)")
-                println("     • Play Core / StoreKit (In-app review)")
-                println("     • Peekaboo (Media picking)")
-                println("\n   Registering implementations...")
-
-                KRelay.register<PermissionFeature>(MockPermissionImpl())
-                println("   ✓ PermissionFeature -> MockPermissionImpl (simulating Moko)")
-
-                KRelay.register<BiometricFeature>(MockBiometricImpl())
-                println("   ✓ BiometricFeature -> MockBiometricImpl (simulating Moko Biometry)")
-
-                KRelay.register<SystemInteractionFeature>(MockSystemInteractionImpl())
-                println("   ✓ SystemInteractionFeature -> MockSystemInteractionImpl (Play Core/StoreKit)")
-
-                KRelay.register<MediaFeature>(MockMediaImpl())
-                println("   ✓ MediaFeature -> MockMediaImpl (simulating Peekaboo)")
-
-                // Supporting features
-                KRelay.register<ToastFeature>(MockToastImpl())
-                KRelay.register<HapticFeature>(MockHapticImpl())
-                KRelay.register<NavigationFeature>(MockNavigationImpl())
-                KRelay.register<AnalyticsFeature>(MockAnalyticsImpl())
-
-                println("\n💡 KEY INSIGHT:")
-                println("   ViewModel (IntegrationsViewModel) has ZERO dependencies on:")
-                println("   • Moko Permissions PermissionsController")
-                println("   • Moko Biometry BiometryManager")
-                println("   • Play Core ReviewManager")
-                println("   • Peekaboo rememberImagePickerLauncher")
-                println("\n   ✅ Result: Clean architecture, no memory leaks, easy testing!")
-                println("═══════════════════════════════════════════════════════════════════\n")
-                }
-            }
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()

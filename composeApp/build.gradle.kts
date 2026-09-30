@@ -65,6 +65,10 @@ kotlin {
             // Moko libraries for KMP
             implementation(libs.moko.permissions)
             implementation(libs.moko.permissions.compose)
+            implementation(libs.moko.permissions.camera)
+            implementation(libs.moko.permissions.location)
+            implementation(libs.moko.permissions.microphone)
+            implementation(libs.moko.permissions.gallery)
             implementation(libs.moko.biometry)
             implementation(libs.moko.biometry.compose)
 

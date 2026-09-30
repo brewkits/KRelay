@@ -17,7 +17,7 @@ bcv = "0.17.0"
 material3 = "1.9.0"
 
 # Integration libraries
-moko-permissions = "0.18.0"
+moko-permissions = "0.20.1"
 moko-biometry = "0.4.0"
 peekaboo = "0.5.2"
 playcore-review = "2.0.1"
@@ -48,6 +48,10 @@ compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-previ
 # Integration libraries
 moko-permissions = { module = "dev.icerock.moko:permissions", version.ref = "moko-permissions" }
 moko-permissions-compose = { module = "dev.icerock.moko:permissions-compose", version.ref = "moko-permissions" }
+moko-permissions-camera = { module = "dev.icerock.moko:permissions-camera", version.ref = "moko-permissions" }
+moko-permissions-location = { module = "dev.icerock.moko:permissions-location", version.ref = "moko-permissions" }
+moko-permissions-microphone = { module = "dev.icerock.moko:permissions-microphone", version.ref = "moko-permissions" }
+moko-permissions-gallery = { module = "dev.icerock.moko:permissions-gallery", version.ref = "moko-permissions" }
 moko-biometry = { module = "dev.icerock.moko:biometry", version.ref = "moko-biometry" }
 moko-biometry-compose = { module = "dev.icerock.moko:biometry-compose", version.ref = "moko-biometry" }
 peekaboo-ui = { module = "io.github.onseok:peekaboo-ui", version.ref = "peekaboo" }

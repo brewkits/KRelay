@@ -5,6 +5,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -18,15 +20,12 @@ import dev.brewkits.krelay.integrations.IntegrationsDemo
 import dev.brewkits.krelay.superapp.SuperAppDemo
 
 /**
- * Main App entry point.
- *
- * Now defaults to IntegrationsDemo with REAL implementations.
- * Menu available to switch between demos if needed.
+ * Main App entry point: a menu that opens one of the KRelay demos.
+ * The selected demo survives configuration changes such as screen rotation.
  */
 @Composable
 fun App() {
-    // Default to IntegrationsDemo (REAL implementations only)
-    var selectedDemo by remember { mutableStateOf<DemoType?>(null) }
+    var selectedDemo by rememberSaveable(stateSaver = DemoTypeSaver) { mutableStateOf<DemoType?>(null) }
 
     when (selectedDemo) {
         DemoType.BASIC -> BasicDemo(onBackClick = { selectedDemo = null })
@@ -199,3 +198,9 @@ enum class DemoType {
     INTEGRATIONS,
     SUPER_APP
 }
+
+/** Stores the selected demo by name so it can be restored after rotation or process recreation. */
+private val DemoTypeSaver: Saver<DemoType?, String> = Saver(
+    save = { it?.name ?: "" },
+    restore = { name -> DemoType.entries.firstOrNull { it.name == name } }
+)

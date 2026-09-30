@@ -65,6 +65,10 @@ fun BasicDemo(onBackClick: () -> Unit) {
         ) { paddingValues ->
             val viewModel = remember { DemoViewModel() }
             val toastImpl = rememberPlatformToastImpl()
+            // KRelay keeps implementations weakly: hold strong references while this screen is shown
+            val notificationImpl = remember { MockNotificationImpl() }
+            val navigationImpl = remember { MockNavigationImpl() }
+            val analyticsImpl = remember { MockAnalyticsImpl() }
 
             // Register implementations for Basic Demo
             LaunchedEffect(Unit) {
@@ -75,11 +79,11 @@ fun BasicDemo(onBackClick: () -> Unit) {
                 println("   → Registering ToastFeature -> Platform-specific REAL implementation")
                 KRelay.register<ToastFeature>(toastImpl)
                 println("   → Registering NotificationBridge -> MockNotificationImpl")
-                KRelay.register<NotificationBridge>(MockNotificationImpl())
+                KRelay.register<NotificationBridge>(notificationImpl)
                 println("   → Registering NavigationFeature -> MockNavigationImpl")
-                KRelay.register<NavigationFeature>(MockNavigationImpl())
+                KRelay.register<NavigationFeature>(navigationImpl)
                 println("   → Registering AnalyticsFeature -> MockAnalyticsImpl")
-                KRelay.register<AnalyticsFeature>(MockAnalyticsImpl())
+                KRelay.register<AnalyticsFeature>(analyticsImpl)
                 println("   ✓ All implementations registered!")
                 println("\n💡 NOTE:")
                 println("   • ToastFeature -> REAL (Android Toast / iOS UIAlertController)")

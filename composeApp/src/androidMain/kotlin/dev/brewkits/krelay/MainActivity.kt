@@ -19,6 +19,15 @@ import dev.brewkits.krelay.superapp.foodKRelay
 import dev.brewkits.krelay.superapp.ridesKRelay
 
 class MainActivity : FragmentActivity() {
+
+    // KRelay holds implementations via WeakReference: keep strong references for the lifetime
+    // of the Activity, otherwise they can be garbage-collected and dispatches will be queued.
+    private val toastFeature by lazy { AndroidToastFeature(applicationContext) }
+    private val notificationBridge by lazy { AndroidNotificationBridge(applicationContext) }
+    private val navigationFeature by lazy { AndroidNavigationFeature(applicationContext) }
+    private val ridesToastFeature by lazy { AndroidToastFeature(applicationContext) }
+    private val foodToastFeature by lazy { AndroidToastFeature(applicationContext) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -27,20 +36,20 @@ class MainActivity : FragmentActivity() {
         KRelay.debugMode = true
 
         // Register platform implementations for the default singleton
-        KRelay.register<ToastFeature>(AndroidToastFeature(applicationContext))
-        KRelay.register<NotificationBridge>(AndroidNotificationBridge(applicationContext))
-        KRelay.register<NavigationFeature>(AndroidNavigationFeature(applicationContext))
+        KRelay.register<ToastFeature>(toastFeature)
+        KRelay.register<NotificationBridge>(notificationBridge)
+        KRelay.register<NavigationFeature>(navigationFeature)
 
         // Register implementations for the Super App demo instances
         // IMPORTANT: Each instance needs its own platform implementation
         Log.d("MainActivity", "Registering Super App instances...")
 
         ridesKRelay.debugMode = true
-        ridesKRelay.register<ToastFeature>(AndroidToastFeature(applicationContext))
+        ridesKRelay.register<ToastFeature>(toastFeature)
         Log.d("MainActivity", "Rides KRelay registered: ${ridesKRelay.isRegistered<ToastFeature>()}")
 
         foodKRelay.debugMode = true
-        foodKRelay.register<ToastFeature>(AndroidToastFeature(applicationContext))
+        foodKRelay.register<ToastFeature>(toastFeature)
         Log.d("MainActivity", "Food KRelay registered: ${foodKRelay.isRegistered<ToastFeature>()}")
 
         setContent {
