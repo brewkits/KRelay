@@ -143,6 +143,19 @@ jobs:
           distribution: 'temurin'
       - uses: gradle/actions/setup-gradle@v6
 
+      - name: Verify publishing secrets are set
+        run: |
+          missing=0
+          for v in OSSRH_USERNAME OSSRH_PASSWORD SIGNING_KEY SIGNING_PASSWORD; do
+            if [ -z "${!v}" ]; then echo "::error::Secret $v is empty or not set in the maven-central environment"; missing=1; fi
+          done
+          exit $missing
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+
       - name: Publish krelay
         run: ./gradlew :krelay:publishAllPublicationsToOSSRHRepository --no-daemon
         env:

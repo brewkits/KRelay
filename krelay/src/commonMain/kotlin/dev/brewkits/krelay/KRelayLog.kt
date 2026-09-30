@@ -31,9 +31,11 @@ fun interface KRelayLogSink {
  */
 object KRelayLog {
     /** Records below this level are dropped before reaching [sink]. Default: [KRelayLogLevel.DEBUG]. */
+    @kotlin.concurrent.Volatile
     var minLevel: KRelayLogLevel = KRelayLogLevel.DEBUG
 
     /** Where records are delivered. Default: [ConsoleLogSink]. */
+    @kotlin.concurrent.Volatile
     var sink: KRelayLogSink = ConsoleLogSink
 
     /** Restores the default console sink and minimum level. */

@@ -113,8 +113,8 @@ publishing {
 }
 
 signing {
-    val rawKey = findProperty("signing.key")?.toString() ?: System.getenv("SIGNING_KEY")
-    val signingPassword = findProperty("signing.password")?.toString() ?: System.getenv("SIGNING_PASSWORD")
+    val rawKey = (findProperty("signing.key")?.toString() ?: System.getenv("SIGNING_KEY"))?.takeIf { it.isNotBlank() }
+    val signingPassword = (findProperty("signing.password")?.toString() ?: System.getenv("SIGNING_PASSWORD"))?.takeIf { it.isNotBlank() }
     if (rawKey != null && signingPassword != null) {
         val signingKey = try {
             val decoded = String(Base64.getDecoder().decode(rawKey))
