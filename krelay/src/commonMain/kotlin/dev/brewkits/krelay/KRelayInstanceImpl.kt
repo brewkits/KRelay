@@ -71,7 +71,7 @@ internal class KRelayInstanceImpl(
                     // Same-class replacement (e.g. Activity recreated by Compose lifecycle) is
                     // expected and not a developer mistake — suppress to avoid log noise.
                     if (existing::class != impl::class) {
-                        log("[WARN] Overwriting ${kClass.simpleName}: replacing ${existing::class.simpleName} with ${impl::class.simpleName}. " +
+                        logWarn("Overwriting ${kClass.simpleName}: replacing ${existing::class.simpleName} with ${impl::class.simpleName}. " +
                             "If unintentional, check that only one component registers this feature at a time.")
                     }
                 }
@@ -85,8 +85,9 @@ internal class KRelayInstanceImpl(
                 val validActions = queue.filter { !it.isExpired(actionExpiryMs) }
                 val expiredCount = queue.size - validActions.size
 
-                if (expiredCount > 0 && debugMode) {
-                    log("[EXPIRY] Removed $expiredCount expired action(s) for ${kClass.simpleName}")
+                if (expiredCount > 0) {
+                    if (debugMode) log("[EXPIRY] Removed $expiredCount expired action(s) for ${kClass.simpleName}")
+                    KRelayMetrics.recordExpiry(kClass, expiredCount, scopeName)
                 }
 
                 queue.clear()
@@ -95,7 +96,7 @@ internal class KRelayInstanceImpl(
                     if (debugMode) {
                         log("[REPLAY] Replaying ${validActions.size} pending action(s) for ${kClass.simpleName}")
                     }
-                    KRelayMetrics.recordReplay(kClass, validActions.size)
+                    KRelayMetrics.recordReplay(kClass, validActions.size, scopeName)
                 }
 
                 validActions.toList()
@@ -141,7 +142,7 @@ internal class KRelayInstanceImpl(
         }
 
         if (impl != null) {
-            KRelayMetrics.recordDispatch(kClass)
+            KRelayMetrics.recordDispatch(kClass, scopeName)
             runOnMain {
                 try {
                     block(impl)
@@ -150,7 +151,7 @@ internal class KRelayInstanceImpl(
                 }
             }
         } else {
-            KRelayMetrics.recordQueue(kClass)
+            KRelayMetrics.recordQueue(kClass, scopeName)
         }
     }
 
@@ -180,7 +181,7 @@ internal class KRelayInstanceImpl(
         }
 
         if (impl != null) {
-            KRelayMetrics.recordDispatch(kClass)
+            KRelayMetrics.recordDispatch(kClass, scopeName)
             runOnMain {
                 try {
                     block(impl)
@@ -189,7 +190,7 @@ internal class KRelayInstanceImpl(
                 }
             }
         } else {
-            KRelayMetrics.recordQueue(kClass)
+            KRelayMetrics.recordQueue(kClass, scopeName)
         }
     }
 
@@ -214,7 +215,7 @@ internal class KRelayInstanceImpl(
             }
             
             if (debugMode) {
-                log("[WARN] Queue full for ${kClass.simpleName}. Evicted ${if (evictByPriority) "lowest-priority" else "oldest"} action.")
+                logWarn("Queue full for ${kClass.simpleName}. Evicted ${if (evictByPriority) "lowest-priority" else "oldest"} action.")
             }
         }
 
@@ -278,7 +279,7 @@ internal class KRelayInstanceImpl(
             if (debugMode) {
                 log("[CLEAR] Cleared queue for ${kClass.simpleName} ($count actions removed)")
             }
-            KRelayMetrics.recordClear(kClass, count)
+            KRelayMetrics.recordClear(kClass, count, scopeName)
         }
     }
 
@@ -490,7 +491,7 @@ internal class KRelayInstanceImpl(
         }
 
         if (impl != null) {
-            KRelayMetrics.recordDispatch(kClass)
+            KRelayMetrics.recordDispatch(kClass, scopeName)
             runOnMain {
                 try {
                     block(impl)
@@ -504,7 +505,7 @@ internal class KRelayInstanceImpl(
                 _persistenceAdapter.save(scopeName, featureKey, command)
                 if (debugMode) log("[PERSIST] Persisted $featureKey::$actionKey to storage")
             }
-            KRelayMetrics.recordQueue(kClass)
+            KRelayMetrics.recordQueue(kClass, scopeName)
         }
     }
 
@@ -552,7 +553,7 @@ internal class KRelayInstanceImpl(
             persistedMap.forEach featureLoop@{ (featureKey, commands) ->
                 val kClass = featureKeyToKClass[featureKey]
                 if (kClass == null) {
-                    if (debugMode) log("[WARN] No KClass for '$featureKey'. Register factory before restorePersistedActions().")
+                    if (debugMode) logWarn("No KClass for '$featureKey'. Register factory before restorePersistedActions().")
                     skippedNoFactory += commands.size
                     commands.forEach { toRemove.add(EnqueuedEntry(featureKey, it)) }
                     return@featureLoop
@@ -569,7 +570,7 @@ internal class KRelayInstanceImpl(
                     @Suppress("UNCHECKED_CAST")
                     val factory = actionFactories[factoryKey] as? ActionFactory<Any>
                     if (factory == null) {
-                        if (debugMode) log("[WARN] No factory for '$factoryKey'. Skipping restored action.")
+                        if (debugMode) logWarn("No factory for '$factoryKey'. Skipping restored action.")
                         skippedNoFactory++
                         toRemove.add(EnqueuedEntry(featureKey, command))
                         return@commandLoop
@@ -606,7 +607,16 @@ internal class KRelayInstanceImpl(
      */
     @PublishedApi
     internal fun log(message: String) {
-        println("[KRelay][$scopeName] $message")
+        KRelayLog.emit(KRelayLogLevel.DEBUG, scopeName, message)
+    }
+
+    /**
+     * Internal logging function for warnings. Call sites decide whether to guard with
+     * `if (debugMode)`; the record is delivered to [KRelayLog.sink] at WARN level.
+     */
+    @PublishedApi
+    internal fun logWarn(message: String) {
+        KRelayLog.emit(KRelayLogLevel.WARN, scopeName, message)
     }
 
     /**
@@ -615,6 +625,6 @@ internal class KRelayInstanceImpl(
      */
     @PublishedApi
     internal fun logError(message: String) {
-        println("[KRelay][$scopeName][ERROR] $message")
+        KRelayLog.emit(KRelayLogLevel.ERROR, scopeName, message)
     }
 }

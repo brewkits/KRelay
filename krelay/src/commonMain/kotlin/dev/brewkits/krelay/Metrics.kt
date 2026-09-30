@@ -52,6 +52,37 @@ object KRelayMetrics {
      */
     var enabled: Boolean = false
 
+    // Copy-on-write so delivery can iterate without holding the lock.
+    private var reporters: List<KRelayMetricsReporter> = emptyList()
+
+    /**
+     * Adds a [reporter] that receives every recorded metric event (see [KRelayMetricsReporter]).
+     * Adding the same instance twice has no effect.
+     */
+    fun addReporter(reporter: KRelayMetricsReporter) {
+        metricsLock.withLock {
+            if (reporter !in reporters) reporters = reporters + reporter
+        }
+    }
+
+    /** Removes a previously added [reporter]. */
+    fun removeReporter(reporter: KRelayMetricsReporter) {
+        metricsLock.withLock { reporters = reporters - reporter }
+    }
+
+    private fun notifyReporters(type: KRelayMetricType, kClass: KClass<*>, count: Int, scopeName: String) {
+        val current = metricsLock.withLock { reporters }
+        if (current.isEmpty()) return
+        val event = KRelayMetricEvent(type, kClass.simpleName.orEmpty(), scopeName, count)
+        current.forEach { reporter ->
+            try {
+                reporter.onMetric(event)
+            } catch (_: Throwable) {
+                // A reporter must never break dispatching.
+            }
+        }
+    }
+
     /**
      * Records a dispatch event. No-op if [enabled] is false.
      */
@@ -64,6 +95,7 @@ object KRelayMetrics {
                 scopedDispatchCounts[key] = (scopedDispatchCounts[key] ?: 0) + 1
             }
         }
+        notifyReporters(KRelayMetricType.DISPATCH, kClass, 1, scopeName)
     }
 
     /**
@@ -78,6 +110,7 @@ object KRelayMetrics {
                 scopedQueueCounts[key] = (scopedQueueCounts[key] ?: 0) + 1
             }
         }
+        notifyReporters(KRelayMetricType.QUEUE, kClass, 1, scopeName)
     }
 
     /**
@@ -92,6 +125,7 @@ object KRelayMetrics {
                 scopedReplayCounts[key] = (scopedReplayCounts[key] ?: 0) + count
             }
         }
+        notifyReporters(KRelayMetricType.REPLAY, kClass, count, scopeName)
     }
 
     /**
@@ -106,6 +140,7 @@ object KRelayMetrics {
                 scopedExpiryCounts[key] = (scopedExpiryCounts[key] ?: 0) + count
             }
         }
+        notifyReporters(KRelayMetricType.EXPIRY, kClass, count, scopeName)
     }
 
     /**
@@ -120,6 +155,7 @@ object KRelayMetrics {
                 scopedClearCounts[key] = (scopedClearCounts[key] ?: 0) + count
             }
         }
+        notifyReporters(KRelayMetricType.CLEAR, kClass, count, scopeName)
     }
 
     /**
