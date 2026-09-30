@@ -47,6 +47,15 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+        androidInstrumentedTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlin.testJunit)
+            implementation(libs.androidx.testExt.junit)
+            implementation(libs.androidx.espresso.core)
+            implementation(libs.androidx.compose.uiTest.junit4)
+            implementation(libs.compose.runtime)
+            implementation(libs.compose.ui)
+        }
     }
 }
 
@@ -55,6 +64,7 @@ android {
     compileSdk = libs.versions.android.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
@@ -146,4 +156,9 @@ signing {
 
 tasks.withType<AbstractPublishToMaven>().configureEach {
     mustRunAfter(tasks.withType<Sign>())
+}
+
+dependencies {
+    // Provides the ComponentActivity host required by createComposeRule()
+    debugImplementation(libs.androidx.compose.uiTest.manifest)
 }

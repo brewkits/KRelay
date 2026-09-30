@@ -3,6 +3,7 @@ package dev.brewkits.krelay.system
 import dev.brewkits.krelay.ActionPriority
 import dev.brewkits.krelay.KRelay
 import dev.brewkits.krelay.RelayFeature
+import dev.brewkits.krelay.currentTimeMillis
 import dev.brewkits.krelay.dispatchWithPriority
 import kotlin.test.*
 
@@ -141,12 +142,12 @@ class BackgroundForegroundScenarioTest {
 
         assertEquals(1, KRelay.getPendingCount<NotificationFeature>())
 
-        // Step 4: Wait for expiry (in real test with time control)
-        // For now, verify expiry mechanism exists
+        // Step 4: Wait until the action is past its 100ms expiry (busy wait: no sleep in common code)
+        val start = currentTimeMillis()
+        while (currentTimeMillis() - start < 150) { /* spin */ }
 
-        // Step 5: Check that getPendingCount removes expired
-        val count = KRelay.getPendingCount<NotificationFeature>()
-        assertTrue(count >= 0)
+        // Step 5: Expired actions are no longer pending
+        assertEquals(0, KRelay.getPendingCount<NotificationFeature>())
 
         // Restore default
         KRelay.actionExpiryMs = 5 * 60 * 1000

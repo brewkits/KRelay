@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import dev.brewkits.krelay.KRelay
 import dev.brewkits.krelay.KRelayInstance
 import dev.brewkits.krelay.RelayFeature
+import dev.brewkits.krelay.dispatch
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.AfterTest
@@ -74,7 +75,7 @@ class KRelayComposeTest {
 
         // Initially key is 1
         var label = ""
-        krelay.dispatch(DummyComposeFeature::class) {
+        krelay.dispatch<DummyComposeFeature> {
             label = it.getLabel()
         }
         composeTestRule.waitForIdle()
@@ -84,7 +85,7 @@ class KRelayComposeTest {
         key = 2
         composeTestRule.waitForIdle()
 
-        krelay.dispatch(DummyComposeFeature::class) {
+        krelay.dispatch<DummyComposeFeature> {
             label = it.getLabel()
         }
         composeTestRule.waitForIdle()

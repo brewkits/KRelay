@@ -82,11 +82,11 @@ class FakeKRelayInstance : KRelayInstance {
         payload: String,
         priorityValue: Int
     ) {
-        // No-op for now in test fake
+        // The fake does not simulate persistence; persisted dispatches are not recorded
     }
 
     override fun setPersistenceAdapter(adapter: dev.brewkits.krelay.KRelayPersistenceAdapter) {
-        // No-op for test fake
+        // The fake does not simulate persistence
     }
 
     override fun restorePersistedActions() {

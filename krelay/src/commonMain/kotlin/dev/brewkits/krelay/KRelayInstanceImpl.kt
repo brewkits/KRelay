@@ -41,6 +41,14 @@ internal class KRelayInstanceImpl(
     internal val pendingQueue = mutableMapOf<KClass<*>, MutableList<QueuedAction>>()
 
     /**
+     * Per-feature lower bound of the oldest timestamp in [pendingQueue]. Lets [enqueueActionUnderLock]
+     * skip the expiry sweep (an O(n) scan) unless something in the queue can actually have expired.
+     * Removals only raise the true minimum, so a stale value is still a valid lower bound;
+     * a missing value with a non-empty queue means "unknown" and forces a sweep.
+     */
+    private val oldestEnqueuedMs = mutableMapOf<KClass<*>, Long>()
+
+    /**
      * The current persistence engine. Defaults to an in-memory mock.
      */
     @PublishedApi
@@ -51,6 +59,13 @@ internal class KRelayInstanceImpl(
      */
     @PublishedApi
     internal val actionFactories = mutableMapOf<String, ActionFactory<*>>()
+
+    /**
+     * Length-prefixed so that no two (featureKey, actionKey) pairs can collide, e.g.
+     * ("a", "b::c") vs ("a::b", "c") would both flatten to "a::b::c" with a plain separator.
+     */
+    private fun factoryKeyOf(featureKey: String, actionKey: String): String =
+        "${featureKey.length}:$featureKey$actionKey"
 
     /**
      * Reverse mapping from stable string keys to [KClass] objects.
@@ -204,7 +219,13 @@ internal class KRelayInstanceImpl(
         evictByPriority: Boolean = false
     ) {
         val queue = pendingQueue.getOrPut(kClass) { mutableListOf() }
-        queue.removeAll { it.isExpired(actionExpiryMs) }
+        val now = currentTimeMillis()
+        val oldest = oldestEnqueuedMs[kClass]
+        if (queue.isNotEmpty() && (oldest == null || now - oldest > actionExpiryMs)) {
+            queue.removeAll { now - it.timestampMs > actionExpiryMs }
+            val remainingOldest = queue.minOfOrNull { it.timestampMs }
+            if (remainingOldest != null) oldestEnqueuedMs[kClass] = remainingOldest else oldestEnqueuedMs.remove(kClass)
+        }
 
         if (queue.size >= maxQueueSize) {
             if (evictByPriority && queue.isNotEmpty()) {
@@ -227,6 +248,12 @@ internal class KRelayInstanceImpl(
         } else {
             queue.add(action)
         }
+        noteEnqueued(kClass, action.timestampMs)
+    }
+
+    private fun noteEnqueued(kClass: KClass<*>, timestampMs: Long) {
+        val current = oldestEnqueuedMs[kClass]
+        if (current == null || timestampMs < current) oldestEnqueuedMs[kClass] = timestampMs
     }
 
     /**
@@ -406,6 +433,7 @@ internal class KRelayInstanceImpl(
             }
             registry.clear()
             pendingQueue.clear()
+            oldestEnqueuedMs.clear()
             actionFactories.clear()
             featureKeyToKClass.clear()
             _persistenceAdapter
@@ -430,7 +458,7 @@ internal class KRelayInstanceImpl(
         lock.withLock {
             featureKeyToKClass[featureKey] = kClass
             @Suppress("UNCHECKED_CAST")
-            actionFactories["$featureKey::$actionKey"] = factory as ActionFactory<*>
+            actionFactories[factoryKeyOf(featureKey, actionKey)] = factory as ActionFactory<*>
             if (debugMode) {
                 log("[FACTORY] Registered factory for $featureKey::$actionKey")
             }
@@ -455,13 +483,14 @@ internal class KRelayInstanceImpl(
         payload: String,
         priorityValue: Int
     ) {
-        val factoryKey = "$featureKey::$actionKey"
+        val factoryKey = factoryKeyOf(featureKey, actionKey)
+        val displayKey = "$featureKey::$actionKey"
 
         // Resolve factory and reconstruct block before acquiring the main lock.
         // factory() only produces a lambda — no I/O, safe to call outside lock.
         val factory = lock.withLock { actionFactories[factoryKey] } as? ActionFactory<T>
             ?: error(
-                "No factory registered for '$factoryKey'. " +
+                "No factory registered for '$displayKey'. " +
                 "Call instance.registerActionFactory<$featureKey>(\"$actionKey\") { payload -> { feature -> ... } } first."
             )
         val block = factory(payload)
@@ -566,11 +595,11 @@ internal class KRelayInstanceImpl(
                         return@commandLoop
                     }
 
-                    val factoryKey = "$featureKey::${command.actionKey}"
+                    val factoryKey = factoryKeyOf(featureKey, command.actionKey)
                     @Suppress("UNCHECKED_CAST")
                     val factory = actionFactories[factoryKey] as? ActionFactory<Any>
                     if (factory == null) {
-                        if (debugMode) logWarn("No factory for '$factoryKey'. Skipping restored action.")
+                        if (debugMode) logWarn("No factory for '$featureKey::${command.actionKey}'. Skipping restored action.")
                         skippedNoFactory++
                         toRemove.add(EnqueuedEntry(featureKey, command))
                         return@commandLoop
@@ -584,6 +613,7 @@ internal class KRelayInstanceImpl(
                     val insertIndex = queue.binarySearch { queuedAction.priority.compareTo(it.priority) }
                         .let { if (it < 0) -(it + 1) else it }
                     queue.add(insertIndex, queuedAction)
+                    noteEnqueued(kClass, queuedAction.timestampMs)
 
                     toRemove.add(EnqueuedEntry(featureKey, command))
                     restoredCount++

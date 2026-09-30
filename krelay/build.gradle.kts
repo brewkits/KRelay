@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.dokka)
     alias(libs.plugins.bcv)
+    alias(libs.plugins.kover)
     id("maven-publish")
     id("signing")
 }
