@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "dev.brewkits"
-version = "2.2.0"
+version = "2.3.0"
 
 @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
 kotlin {
@@ -116,8 +116,8 @@ publishing {
 
         maven {
             name = "OSSRH"
-            val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-            val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+            val releasesRepoUrl = uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
+            val snapshotsRepoUrl = uri("https://central.sonatype.com/repository/maven-snapshots/")
             url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
 
             credentials {
@@ -129,8 +129,8 @@ publishing {
 }
 
 signing {
-    val rawKey = findProperty("signing.key")?.toString() ?: System.getenv("SIGNING_KEY")
-    val signingPassword = findProperty("signing.password")?.toString() ?: System.getenv("SIGNING_PASSWORD")
+    val rawKey = (findProperty("signing.key")?.toString() ?: System.getenv("SIGNING_KEY"))?.takeIf { it.isNotBlank() }
+    val signingPassword = (findProperty("signing.password")?.toString() ?: System.getenv("SIGNING_PASSWORD"))?.takeIf { it.isNotBlank() }
 
     if (rawKey != null && signingPassword != null) {
         val signingKey = try {

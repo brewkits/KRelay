@@ -51,7 +51,13 @@ Test complete real-world scenarios:
 
 **Purpose**: Verify the entire system works in production scenarios.
 
-### 4. Demo Examples (`krelay/src/commonTest/kotlin/dev/brewkits/krelay/demo/`)
+### 4. Stress, Performance & Security Tests
+
+- **stress/** (`LockStressTest`, `ScopeTokenConcurrentStressTest`) - heavy concurrent access
+- **performance/PerformanceTest.kt** - throughput and scaling guards (20k-queue enqueue/replay, priority insertion, flood, churn). Budgets are generous; they catch algorithmic regressions such as O(n²) queueing, not micro-variance.
+- **security/SecurityTest.kt** - malformed and tampered persisted commands, factory-key confusion, queue flooding, misbehaving callbacks, token uniqueness, instance isolation
+
+### 5. Demo Examples (`krelay/src/commonTest/kotlin/dev/brewkits/krelay/demo/`)
 
 Advanced usage examples that double as tests:
 
@@ -69,45 +75,55 @@ Advanced usage examples that double as tests:
 ### Run All Tests
 
 ```bash
-./gradlew :krelay:test
+./gradlew :krelay:jvmTest
 ```
 
 ### Run Specific Test Class
 
 ```bash
-./gradlew :krelay:test --tests "dev.brewkits.krelay.unit.WeakRefTest"
-./gradlew :krelay:test --tests "dev.brewkits.krelay.demo.LoginFlowDemo"
+./gradlew :krelay:jvmTest --tests "dev.brewkits.krelay.unit.WeakRefTest"
+./gradlew :krelay:jvmTest --tests "dev.brewkits.krelay.demo.LoginFlowDemo"
 ```
 
 ### Run Tests by Category
 
 ```bash
 # Unit tests only
-./gradlew :krelay:test --tests "dev.brewkits.krelay.unit.*"
+./gradlew :krelay:jvmTest --tests "dev.brewkits.krelay.unit.*"
 
 # Integration tests only
-./gradlew :krelay:test --tests "dev.brewkits.krelay.integration.*"
+./gradlew :krelay:jvmTest --tests "dev.brewkits.krelay.integration.*"
 
 # System tests only
-./gradlew :krelay:test --tests "dev.brewkits.krelay.system.*"
+./gradlew :krelay:jvmTest --tests "dev.brewkits.krelay.system.*"
+
+# Stress / performance / security
+./gradlew :krelay:jvmTest --tests "dev.brewkits.krelay.stress.*" --tests "dev.brewkits.krelay.performance.*" --tests "dev.brewkits.krelay.security.*"
 
 # Demo examples only
-./gradlew :krelay:test --tests "dev.brewkits.krelay.demo.*"
+./gradlew :krelay:jvmTest --tests "dev.brewkits.krelay.demo.*"
 ```
+
+Per platform: `:krelay:jvmTest`, `:krelay:testDebugUnitTest`, `:krelay:wasmJsBrowserTest`, `:krelay:iosSimulatorArm64Test`.
+On-device tests: `ANDROID_SERIAL=<device> ./gradlew :krelay:connectedDebugAndroidTest :krelay-compose:connectedDebugAndroidTest`.
 
 ### Run with Debug Output
 
 ```bash
-./gradlew :krelay:test --info
-./gradlew :krelay:test --debug
+./gradlew :krelay:jvmTest --info
+./gradlew :krelay:jvmTest --debug
 ```
 
 ### Test Coverage Report
 
+Coverage is measured with [Kover](https://github.com/Kotlin/kotlinx-kover) (JVM):
+
 ```bash
-./gradlew :krelay:test :krelay:jacocoTestReport
-# Report will be in: krelay/build/reports/jacoco/test/html/index.html
+./gradlew :krelay:koverHtmlReport
+# Report: krelay/build/reports/kover/html/index.html   (XML: :krelay:koverXmlReport)
 ```
+
+The bundled `dev.brewkits.krelay.samples` package (demo view models) is intentionally not unit tested.
 
 ---
 
@@ -777,12 +793,13 @@ When adding new features:
 Add to CI pipeline:
 
 ```bash
-# In CI script
-./gradlew :krelay:test --continue
-./gradlew :krelay:jacocoTestReport
+# See .github/workflows/ci.yml for the full pipeline
+./gradlew :krelay:testDebugUnitTest :krelay:jvmTest :krelay:wasmJsBrowserTest --continue
+./gradlew :krelay:iosSimulatorArm64Test        # macOS runner
+./gradlew :krelay:apiCheck :krelay-compose:apiCheck
 
-# Fail if coverage < 80%
-./gradlew :krelay:jacocoTestCoverageVerification
+# Optional: coverage report
+./gradlew :krelay:koverXmlReport
 ```
 
 ---

@@ -2,6 +2,7 @@ package dev.brewkits.krelay.flow
 
 import dev.brewkits.krelay.KRelay
 import dev.brewkits.krelay.RelayFeature
+import dev.brewkits.krelay.registerActionFactory
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -76,5 +77,36 @@ class KRelayFlowTest {
         assertEquals(listOf("event1", "event2"), mock.received)
         
         job.cancel()
+    }
+}
+
+class DispatchPersistedSuspendTest {
+
+    @kotlin.test.BeforeTest
+    fun setup() {
+        KRelay.reset()
+    }
+
+    @Test
+    fun testDispatchPersistedSuspend_queuesUntilFeatureRegisters() = runTest {
+        val mock = MockFlowFeature()
+        KRelay.instance.registerActionFactory<FlowTestFeature>("flowFeature", "receive") { payload ->
+            { feature -> feature.receive(payload) }
+        }
+
+        // No implementation yet: the action is queued from Dispatchers.Default.
+        KRelay.instance.dispatchPersistedSuspend<FlowTestFeature>("flowFeature", "receive", "hello")
+        assertEquals(emptyList(), mock.received)
+
+        // Registering replays the queued action.
+        KRelay.register<FlowTestFeature>(mock)
+        assertEquals(listOf("hello"), mock.received)
+    }
+
+    @Test
+    fun testDispatchPersistedSuspend_unknownFactory_throws() = runTest {
+        kotlin.test.assertFailsWith<IllegalStateException> {
+            KRelay.instance.dispatchPersistedSuspend<FlowTestFeature>("flowFeature", "missing")
+        }
     }
 }

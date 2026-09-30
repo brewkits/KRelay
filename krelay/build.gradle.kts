@@ -7,12 +7,13 @@ plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.dokka)
     alias(libs.plugins.bcv)
+    alias(libs.plugins.kover)
     id("maven-publish")
     id("signing")
 }
 
 group = "dev.brewkits"
-version = "2.2.0"
+version = "2.3.0"
 
 kotlin {
     androidTarget {
@@ -167,8 +168,8 @@ publishing {
         // Maven Central (Sonatype OSSRH)
         maven {
             name = "OSSRH"
-            val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-            val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+            val releasesRepoUrl = uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
+            val snapshotsRepoUrl = uri("https://central.sonatype.com/repository/maven-snapshots/")
             url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
 
             credentials {
@@ -180,8 +181,8 @@ publishing {
 }
 
 signing {
-    val rawKey = findProperty("signing.key")?.toString() ?: System.getenv("SIGNING_KEY")
-    val signingPassword = findProperty("signing.password")?.toString() ?: System.getenv("SIGNING_PASSWORD")
+    val rawKey = (findProperty("signing.key")?.toString() ?: System.getenv("SIGNING_KEY"))?.takeIf { it.isNotBlank() }
+    val signingPassword = (findProperty("signing.password")?.toString() ?: System.getenv("SIGNING_PASSWORD"))?.takeIf { it.isNotBlank() }
 
     if (rawKey != null && signingPassword != null) {
         // Key may be stored as base64 in gradle.properties — decode if needed

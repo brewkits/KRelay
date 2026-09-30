@@ -13,6 +13,10 @@ import dev.icerock.moko.permissions.Permission
 import dev.icerock.moko.permissions.PermissionsController
 import dev.icerock.moko.permissions.compose.BindEffect
 import dev.icerock.moko.permissions.compose.rememberPermissionsControllerFactory
+import dev.icerock.moko.permissions.camera.CAMERA
+import dev.icerock.moko.permissions.gallery.GALLERY
+import dev.icerock.moko.permissions.location.LOCATION
+import dev.icerock.moko.permissions.microphone.RECORD_AUDIO
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

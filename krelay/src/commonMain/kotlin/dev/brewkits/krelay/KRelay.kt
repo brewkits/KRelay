@@ -58,8 +58,6 @@ object KRelay {
     // SINGLETON API (v1.0 - Backward Compatible)
     // ============================================================
 
-    // Internal state accessors removed for M-03. Always use defaultInstance.
-
     /**
      * Global configuration: Maximum pending actions allowed per feature type.
      * Default: 100
@@ -318,7 +316,8 @@ object KRelay {
             "dispatches" to KRelayMetrics.getDispatchCount(kClass),
             "queued"     to KRelayMetrics.getQueueCount(kClass),
             "replayed"   to KRelayMetrics.getReplayCount(kClass),
-            "expired"    to KRelayMetrics.getExpiryCount(kClass)
+            "expired"    to KRelayMetrics.getExpiryCount(kClass),
+            "cleared"    to KRelayMetrics.getClearCount(kClass)
         )
     }
 

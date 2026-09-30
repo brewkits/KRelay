@@ -14,6 +14,11 @@ public final class dev/brewkits/krelay/ActionPriority$Companion {
 	public final fun getDEFAULT ()Ldev/brewkits/krelay/ActionPriority;
 }
 
+public final class dev/brewkits/krelay/ConsoleLogSink : dev/brewkits/krelay/KRelayLogSink {
+	public static final field INSTANCE Ldev/brewkits/krelay/ConsoleLogSink;
+	public fun log (Ldev/brewkits/krelay/KRelayLogLevel;Ljava/lang/String;Ljava/lang/String;)V
+}
+
 public final class dev/brewkits/krelay/DebugInfo {
 	public fun <init> (ILjava/util/List;Ljava/util/Map;IIIJZ)V
 	public final fun component1 ()I
@@ -91,8 +96,10 @@ public abstract interface class dev/brewkits/krelay/KRelayInstance {
 	public abstract fun cancelScope (Ljava/lang/String;)V
 	public abstract fun clearQueue (Lkotlin/reflect/KClass;)V
 	public abstract fun dispatch (Lkotlin/reflect/KClass;Lkotlin/jvm/functions/Function1;Ljava/lang/String;)V
+	public static synthetic fun dispatch$default (Ldev/brewkits/krelay/KRelayInstance;Lkotlin/reflect/KClass;Lkotlin/jvm/functions/Function1;Ljava/lang/String;ILjava/lang/Object;)V
 	public abstract fun dispatchPersisted (Lkotlin/reflect/KClass;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V
 	public abstract fun dispatchWithPriority (Lkotlin/reflect/KClass;ILkotlin/jvm/functions/Function1;Ljava/lang/String;)V
+	public static synthetic fun dispatchWithPriority$default (Ldev/brewkits/krelay/KRelayInstance;Lkotlin/reflect/KClass;ILkotlin/jvm/functions/Function1;Ljava/lang/String;ILjava/lang/Object;)V
 	public abstract fun dump ()V
 	public abstract fun getActionExpiryMs ()J
 	public abstract fun getDebugInfo ()Ldev/brewkits/krelay/DebugInfo;
@@ -113,6 +120,7 @@ public abstract interface class dev/brewkits/krelay/KRelayInstance {
 	public abstract fun setMaxQueueSize (I)V
 	public abstract fun setPersistenceAdapter (Ldev/brewkits/krelay/KRelayPersistenceAdapter;)V
 	public abstract fun unregister (Lkotlin/reflect/KClass;Ldev/brewkits/krelay/RelayFeature;)V
+	public static synthetic fun unregister$default (Ldev/brewkits/krelay/KRelayInstance;Lkotlin/reflect/KClass;Ldev/brewkits/krelay/RelayFeature;ILjava/lang/Object;)V
 }
 
 public final class dev/brewkits/krelay/KRelayInstance$DefaultImpls {
@@ -149,6 +157,7 @@ public final class dev/brewkits/krelay/KRelayInstanceImpl : dev/brewkits/krelay/
 	public fun isRegistered (Lkotlin/reflect/KClass;)Z
 	public final fun log (Ljava/lang/String;)V
 	public final fun logError (Ljava/lang/String;)V
+	public final fun logWarn (Ljava/lang/String;)V
 	public fun register (Lkotlin/reflect/KClass;Ldev/brewkits/krelay/RelayFeature;)V
 	public fun registerActionFactory (Lkotlin/reflect/KClass;Ljava/lang/String;Ljava/lang/String;Lkotlin/jvm/functions/Function1;)V
 	public fun reset ()V
@@ -166,8 +175,60 @@ public final class dev/brewkits/krelay/KRelayKt {
 	public static final fun scopedToken ()Ljava/lang/String;
 }
 
+public final class dev/brewkits/krelay/KRelayLog {
+	public static final field INSTANCE Ldev/brewkits/krelay/KRelayLog;
+	public final fun getMinLevel ()Ldev/brewkits/krelay/KRelayLogLevel;
+	public final fun getSink ()Ldev/brewkits/krelay/KRelayLogSink;
+	public final fun reset ()V
+	public final fun setMinLevel (Ldev/brewkits/krelay/KRelayLogLevel;)V
+	public final fun setSink (Ldev/brewkits/krelay/KRelayLogSink;)V
+}
+
+public final class dev/brewkits/krelay/KRelayLogLevel : java/lang/Enum {
+	public static final field DEBUG Ldev/brewkits/krelay/KRelayLogLevel;
+	public static final field ERROR Ldev/brewkits/krelay/KRelayLogLevel;
+	public static final field INFO Ldev/brewkits/krelay/KRelayLogLevel;
+	public static final field WARN Ldev/brewkits/krelay/KRelayLogLevel;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Ldev/brewkits/krelay/KRelayLogLevel;
+	public static fun values ()[Ldev/brewkits/krelay/KRelayLogLevel;
+}
+
+public abstract interface class dev/brewkits/krelay/KRelayLogSink {
+	public abstract fun log (Ldev/brewkits/krelay/KRelayLogLevel;Ljava/lang/String;Ljava/lang/String;)V
+}
+
+public final class dev/brewkits/krelay/KRelayMetricEvent {
+	public fun <init> (Ldev/brewkits/krelay/KRelayMetricType;Ljava/lang/String;Ljava/lang/String;I)V
+	public final fun component1 ()Ldev/brewkits/krelay/KRelayMetricType;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()I
+	public final fun copy (Ldev/brewkits/krelay/KRelayMetricType;Ljava/lang/String;Ljava/lang/String;I)Ldev/brewkits/krelay/KRelayMetricEvent;
+	public static synthetic fun copy$default (Ldev/brewkits/krelay/KRelayMetricEvent;Ldev/brewkits/krelay/KRelayMetricType;Ljava/lang/String;Ljava/lang/String;IILjava/lang/Object;)Ldev/brewkits/krelay/KRelayMetricEvent;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCount ()I
+	public final fun getFeatureName ()Ljava/lang/String;
+	public final fun getScopeName ()Ljava/lang/String;
+	public final fun getType ()Ldev/brewkits/krelay/KRelayMetricType;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class dev/brewkits/krelay/KRelayMetricType : java/lang/Enum {
+	public static final field CLEAR Ldev/brewkits/krelay/KRelayMetricType;
+	public static final field DISPATCH Ldev/brewkits/krelay/KRelayMetricType;
+	public static final field EXPIRY Ldev/brewkits/krelay/KRelayMetricType;
+	public static final field QUEUE Ldev/brewkits/krelay/KRelayMetricType;
+	public static final field REPLAY Ldev/brewkits/krelay/KRelayMetricType;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Ldev/brewkits/krelay/KRelayMetricType;
+	public static fun values ()[Ldev/brewkits/krelay/KRelayMetricType;
+}
+
 public final class dev/brewkits/krelay/KRelayMetrics {
 	public static final field INSTANCE Ldev/brewkits/krelay/KRelayMetrics;
+	public final fun addReporter (Ldev/brewkits/krelay/KRelayMetricsReporter;)V
 	public final fun getAllMetrics ()Ljava/util/Map;
 	public final fun getClearCount (Lkotlin/reflect/KClass;)J
 	public final fun getDispatchCount (Lkotlin/reflect/KClass;)J
@@ -177,9 +238,14 @@ public final class dev/brewkits/krelay/KRelayMetrics {
 	public final fun getQueueCount (Lkotlin/reflect/KClass;)J
 	public final fun getReplayCount (Lkotlin/reflect/KClass;)J
 	public final fun printReport ()V
+	public final fun removeReporter (Ldev/brewkits/krelay/KRelayMetricsReporter;)V
 	public final fun reset ()V
 	public final fun resetInstance (Ljava/lang/String;)V
 	public final fun setEnabled (Z)V
+}
+
+public abstract interface class dev/brewkits/krelay/KRelayMetricsReporter {
+	public abstract fun onMetric (Ldev/brewkits/krelay/KRelayMetricEvent;)V
 }
 
 public abstract interface class dev/brewkits/krelay/KRelayPersistenceAdapter {
@@ -279,6 +345,7 @@ public abstract interface class dev/brewkits/krelay/samples/AnalyticsFeature : d
 	public abstract fun track (Ljava/lang/String;)V
 	public abstract fun track (Ljava/lang/String;Ljava/util/Map;)V
 	public abstract fun trackScreen (Ljava/lang/String;Ljava/lang/String;)V
+	public static synthetic fun trackScreen$default (Ldev/brewkits/krelay/samples/AnalyticsFeature;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)V
 }
 
 public final class dev/brewkits/krelay/samples/AnalyticsFeature$DefaultImpls {
@@ -294,6 +361,7 @@ public final class dev/brewkits/krelay/samples/BiometricDemoViewModel {
 
 public abstract interface class dev/brewkits/krelay/samples/BiometricFeature : dev/brewkits/krelay/RelayFeature {
 	public abstract fun authenticate (Ljava/lang/String;Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;)V
+	public static synthetic fun authenticate$default (Ldev/brewkits/krelay/samples/BiometricFeature;Ljava/lang/String;Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
 	public abstract fun authenticateSimple (Ljava/lang/String;Lkotlin/jvm/functions/Function1;)V
 	public abstract fun isAvailable ()Z
 }
@@ -336,9 +404,11 @@ public abstract interface class dev/brewkits/krelay/samples/EnhancedMediaFeature
 public abstract interface class dev/brewkits/krelay/samples/HapticFeature : dev/brewkits/krelay/RelayFeature {
 	public abstract fun error ()V
 	public abstract fun impact (Ldev/brewkits/krelay/samples/HapticStyle;)V
+	public static synthetic fun impact$default (Ldev/brewkits/krelay/samples/HapticFeature;Ldev/brewkits/krelay/samples/HapticStyle;ILjava/lang/Object;)V
 	public abstract fun selection ()V
 	public abstract fun success ()V
 	public abstract fun vibrate (J)V
+	public static synthetic fun vibrate$default (Ldev/brewkits/krelay/samples/HapticFeature;JILjava/lang/Object;)V
 	public abstract fun warning ()V
 }
 
@@ -391,8 +461,10 @@ public abstract interface class dev/brewkits/krelay/samples/MediaFeature : dev/b
 	public abstract fun isGalleryAvailable ()Z
 	public abstract fun pickImageFromGallery (Lkotlin/jvm/functions/Function1;)V
 	public abstract fun pickMultipleImages (ILkotlin/jvm/functions/Function1;)V
+	public static synthetic fun pickMultipleImages$default (Ldev/brewkits/krelay/samples/MediaFeature;ILkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
 	public abstract fun pickVideo (Lkotlin/jvm/functions/Function1;)V
 	public abstract fun recordVideo (ILkotlin/jvm/functions/Function1;)V
+	public static synthetic fun recordVideo$default (Ldev/brewkits/krelay/samples/MediaFeature;ILkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
 }
 
 public final class dev/brewkits/krelay/samples/MediaFeature$DefaultImpls {
@@ -423,6 +495,7 @@ public final class dev/brewkits/krelay/samples/MediaResult {
 public abstract interface class dev/brewkits/krelay/samples/NavigationFeature : dev/brewkits/krelay/RelayFeature {
 	public abstract fun navigateBack ()V
 	public abstract fun navigateTo (Ljava/lang/String;Ljava/util/Map;)V
+	public static synthetic fun navigateTo$default (Ldev/brewkits/krelay/samples/NavigationFeature;Ljava/lang/String;Ljava/util/Map;ILjava/lang/Object;)V
 	public abstract fun navigateToRoot ()V
 }
 
@@ -432,6 +505,7 @@ public final class dev/brewkits/krelay/samples/NavigationFeature$DefaultImpls {
 
 public abstract interface class dev/brewkits/krelay/samples/NotificationBridge : dev/brewkits/krelay/RelayFeature {
 	public abstract fun showInAppNotification (Ljava/lang/String;Ljava/lang/String;I)V
+	public static synthetic fun showInAppNotification$default (Ldev/brewkits/krelay/samples/NotificationBridge;Ljava/lang/String;Ljava/lang/String;IILjava/lang/Object;)V
 	public abstract fun showSystemNotification (Ljava/lang/String;Ljava/lang/String;)V
 }
 
@@ -472,9 +546,12 @@ public final class dev/brewkits/krelay/samples/SystemInteractionDemoViewModel {
 
 public abstract interface class dev/brewkits/krelay/samples/SystemInteractionFeature : dev/brewkits/krelay/RelayFeature {
 	public abstract fun checkForAppUpdates (Lkotlin/jvm/functions/Function1;)V
+	public static synthetic fun checkForAppUpdates$default (Ldev/brewkits/krelay/samples/SystemInteractionFeature;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
 	public abstract fun openAppSettings ()V
 	public abstract fun openAppStorePage (Z)V
+	public static synthetic fun openAppStorePage$default (Ldev/brewkits/krelay/samples/SystemInteractionFeature;ZILjava/lang/Object;)V
 	public abstract fun promptUpdate (ZLkotlin/jvm/functions/Function1;)V
+	public static synthetic fun promptUpdate$default (Ldev/brewkits/krelay/samples/SystemInteractionFeature;ZLkotlin/jvm/functions/Function1;ILjava/lang/Object;)V
 	public abstract fun requestInAppReview ()V
 	public abstract fun shareApp ()V
 }

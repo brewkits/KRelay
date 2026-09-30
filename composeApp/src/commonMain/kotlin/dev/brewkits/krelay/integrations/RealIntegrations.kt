@@ -23,6 +23,8 @@ fun SetupRealIntegrations() {
     val toastImpl = rememberToastImplementation()
     val hapticImpl = rememberHapticImplementation()
     val analyticsImpl = rememberAnalyticsImplementation()
+    // KRelay keeps implementations weakly: hold a strong reference for the composition's lifetime
+    val navigationImpl = remember { MockNavigationImpl() }
 
     LaunchedEffect(Unit) {
         println("\n╔════════════════════════════════════════════════════════════════╗")
@@ -58,7 +60,7 @@ fun SetupRealIntegrations() {
         println("   ✓ AnalyticsFeature -> Platform specific (REAL)")
 
         // Navigation feature - using mock (use VoyagerDemo for real navigation)
-        KRelay.register<NavigationFeature>(MockNavigationImpl())
+        KRelay.register<NavigationFeature>(navigationImpl)
         println("   ✓ NavigationFeature -> Mock (see VoyagerDemo for real navigation)")
 
         println("\n✨ All REAL integrations registered!")

@@ -10,20 +10,22 @@ androidx-core = "1.17.0"
 androidx-espresso = "3.7.0"
 androidx-lifecycle = "2.9.6"
 androidx-testExt = "1.3.0"
-composeMultiplatform = "1.8.0-alpha03"
+androidx-composeUiTest = "1.10.6"
+composeMultiplatform = "1.10.3"
 junit = "4.13.2"
-kotlin = "2.1.0"
+kotlin = "2.3.21"
 bcv = "0.17.0"
-material3 = "1.8.0-alpha03"
+kover = "0.9.11"
+material3 = "1.9.0"
 
 # Integration libraries
-moko-permissions = "0.18.0"
+moko-permissions = "0.20.1"
 moko-biometry = "0.4.0"
 peekaboo = "0.5.2"
 playcore-review = "2.0.1"
 biometric = "1.1.0"
-decompose = "3.4.0-alpha03"
-decompose-extensions = "3.4.0-alpha03"
+decompose = "3.5.0"
+decompose-extensions = "3.5.0"
 voyager = "1.1.0-beta03"
 
 [libraries]
@@ -31,6 +33,8 @@ kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotl
 kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 junit = { module = "junit:junit", version.ref = "junit" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
+androidx-compose-uiTest-junit4 = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "androidx-composeUiTest" }
+androidx-compose-uiTest-manifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-composeUiTest" }
 androidx-testExt-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-testExt" }
 androidx-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "androidx-espresso" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidx-appcompat" }
@@ -48,6 +52,10 @@ compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-previ
 # Integration libraries
 moko-permissions = { module = "dev.icerock.moko:permissions", version.ref = "moko-permissions" }
 moko-permissions-compose = { module = "dev.icerock.moko:permissions-compose", version.ref = "moko-permissions" }
+moko-permissions-camera = { module = "dev.icerock.moko:permissions-camera", version.ref = "moko-permissions" }
+moko-permissions-location = { module = "dev.icerock.moko:permissions-location", version.ref = "moko-permissions" }
+moko-permissions-microphone = { module = "dev.icerock.moko:permissions-microphone", version.ref = "moko-permissions" }
+moko-permissions-gallery = { module = "dev.icerock.moko:permissions-gallery", version.ref = "moko-permissions" }
 moko-biometry = { module = "dev.icerock.moko:biometry", version.ref = "moko-biometry" }
 moko-biometry-compose = { module = "dev.icerock.moko:biometry-compose", version.ref = "moko-biometry" }
 peekaboo-ui = { module = "io.github.onseok:peekaboo-ui", version.ref = "peekaboo" }
@@ -69,3 +77,4 @@ kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref =
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 bcv = { id = "org.jetbrains.kotlinx.binary-compatibility-validator", version.ref = "bcv" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

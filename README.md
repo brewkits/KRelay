@@ -85,7 +85,7 @@ KRelay now provides a **Bill of Materials (BOM)** to automatically align version
 sourceSets {
     commonMain.dependencies {
         // 1. (Recommended) Import the BOM
-        api(platform("dev.brewkits:krelay-bom:2.2.0"))
+        api(platform("dev.brewkits:krelay-bom:2.3.0"))
         
         // 2. Add dependencies without specifying versions
         implementation("dev.brewkits:krelay")
@@ -399,6 +399,7 @@ See [Integration Guides](docs/INTEGRATION_GUIDES.md) for step-by-step examples.
 
 | KRelay | Kotlin | AGP | Android minSdk | iOS | Desktop (JVM) | WasmJs |
 |---|---|---|---|---|---|---|
+| 2.3.x | 2.2+ (built with 2.3.21) | 8.x | 24 | 14.0+ | ✅ | ✅ |
 | 2.2.x | 2.1.x | 8.x | 24 | 14.0+ | ✅ | ✅ |
 | 2.1.x | 2.1.x | 8.x | 24 | 14.0+ | — | — |
 | 2.0.x | 2.1.x | 8.x | 24 | 14.0+ | — | — |
@@ -412,6 +413,23 @@ See [Integration Guides](docs/INTEGRATION_GUIDES.md) for step-by-step examples.
 ## What's New
 
 <details open>
+<summary><strong>v2.3.0 — Observability</strong> <em>(Oct 2026)</em></summary>
+
+- **Structured logging** — `KRelayLog` with severity levels and pluggable `KRelayLogSink`.
+- **Metrics reporter** — `KRelayMetricsReporter` forwards dispatch / queue / replay / expiry / clear events to Firebase, Datadog or your own backend. See [Monitoring & Logging](docs/MONITORING.md).
+- **`dispatchPersistedSuspend`** in `krelay-flow` — persist from coroutines without blocking on storage I/O.
+- **Fixes** — per-instance metrics are now actually attributed to their scope; expired actions are counted.
+- **Toolchain** — built with Kotlin 2.3.21 and Compose Multiplatform 1.10.3. Upgrade guide: [Migration to v2.3](docs/MIGRATION_V2_3.md).
+</details>
+
+<details>
+<summary><strong>v2.2.0 — Desktop, Web & Flow Adapter</strong> <em>(Sep 2026)</em></summary>
+
+- JVM Desktop and Kotlin/WasmJs targets
+- `krelay-flow` artifact with the `relayTo` operator
+</details>
+
+<details>
 <summary><strong>v2.1.1 — QA Hardening & Ecosystem Infrastructure</strong> <em>(Sep 2026)</em></summary>
 
 - **`krelay-testing` artifact** — `FakeKRelayInstance` with a full assertion API (`assertDispatched`, `assertNotDispatched`, `executeLastDispatch`) for clean, mock-free unit testing.
@@ -457,6 +475,8 @@ See [Integration Guides](docs/INTEGRATION_GUIDES.md) for step-by-step examples.
 | [Architecture](docs/ARCHITECTURE.md) | Internals deep dive |
 | [API Reference](docs/QUICK_REFERENCE.md) | Full API cheat sheet |
 | [Managing Warnings](docs/MANAGING_WARNINGS.md) | Suppress `@OptIn` at module level |
+| [Monitoring & Logging](docs/MONITORING.md) | `KRelayLog`, `KRelayMetricsReporter` |
+| [Migration to v2.3](docs/MIGRATION_V2_3.md) | Toolchain requirements and behaviour changes |
 | [Migration to v2.0](docs/MIGRATION_V2.md) | Upgrading from v1.x |
 
 ---

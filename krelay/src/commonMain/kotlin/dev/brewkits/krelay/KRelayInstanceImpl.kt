@@ -41,6 +41,14 @@ internal class KRelayInstanceImpl(
     internal val pendingQueue = mutableMapOf<KClass<*>, MutableList<QueuedAction>>()
 
     /**
+     * Per-feature lower bound of the oldest timestamp in [pendingQueue]. Lets [enqueueActionUnderLock]
+     * skip the expiry sweep (an O(n) scan) unless something in the queue can actually have expired.
+     * Removals only raise the true minimum, so a stale value is still a valid lower bound;
+     * a missing value with a non-empty queue means "unknown" and forces a sweep.
+     */
+    private val oldestEnqueuedMs = mutableMapOf<KClass<*>, Long>()
+
+    /**
      * The current persistence engine. Defaults to an in-memory mock.
      */
     @PublishedApi
@@ -51,6 +59,13 @@ internal class KRelayInstanceImpl(
      */
     @PublishedApi
     internal val actionFactories = mutableMapOf<String, ActionFactory<*>>()
+
+    /**
+     * Length-prefixed so that no two (featureKey, actionKey) pairs can collide, e.g.
+     * ("a", "b::c") vs ("a::b", "c") would both flatten to "a::b::c" with a plain separator.
+     */
+    private fun factoryKeyOf(featureKey: String, actionKey: String): String =
+        "${featureKey.length}:$featureKey$actionKey"
 
     /**
      * Reverse mapping from stable string keys to [KClass] objects.
@@ -71,7 +86,7 @@ internal class KRelayInstanceImpl(
                     // Same-class replacement (e.g. Activity recreated by Compose lifecycle) is
                     // expected and not a developer mistake — suppress to avoid log noise.
                     if (existing::class != impl::class) {
-                        log("[WARN] Overwriting ${kClass.simpleName}: replacing ${existing::class.simpleName} with ${impl::class.simpleName}. " +
+                        logWarn("Overwriting ${kClass.simpleName}: replacing ${existing::class.simpleName} with ${impl::class.simpleName}. " +
                             "If unintentional, check that only one component registers this feature at a time.")
                     }
                 }
@@ -85,8 +100,9 @@ internal class KRelayInstanceImpl(
                 val validActions = queue.filter { !it.isExpired(actionExpiryMs) }
                 val expiredCount = queue.size - validActions.size
 
-                if (expiredCount > 0 && debugMode) {
-                    log("[EXPIRY] Removed $expiredCount expired action(s) for ${kClass.simpleName}")
+                if (expiredCount > 0) {
+                    if (debugMode) log("[EXPIRY] Removed $expiredCount expired action(s) for ${kClass.simpleName}")
+                    KRelayMetrics.recordExpiry(kClass, expiredCount, scopeName)
                 }
 
                 queue.clear()
@@ -95,7 +111,7 @@ internal class KRelayInstanceImpl(
                     if (debugMode) {
                         log("[REPLAY] Replaying ${validActions.size} pending action(s) for ${kClass.simpleName}")
                     }
-                    KRelayMetrics.recordReplay(kClass, validActions.size)
+                    KRelayMetrics.recordReplay(kClass, validActions.size, scopeName)
                 }
 
                 validActions.toList()
@@ -141,7 +157,7 @@ internal class KRelayInstanceImpl(
         }
 
         if (impl != null) {
-            KRelayMetrics.recordDispatch(kClass)
+            KRelayMetrics.recordDispatch(kClass, scopeName)
             runOnMain {
                 try {
                     block(impl)
@@ -150,7 +166,7 @@ internal class KRelayInstanceImpl(
                 }
             }
         } else {
-            KRelayMetrics.recordQueue(kClass)
+            KRelayMetrics.recordQueue(kClass, scopeName)
         }
     }
 
@@ -180,7 +196,7 @@ internal class KRelayInstanceImpl(
         }
 
         if (impl != null) {
-            KRelayMetrics.recordDispatch(kClass)
+            KRelayMetrics.recordDispatch(kClass, scopeName)
             runOnMain {
                 try {
                     block(impl)
@@ -189,7 +205,7 @@ internal class KRelayInstanceImpl(
                 }
             }
         } else {
-            KRelayMetrics.recordQueue(kClass)
+            KRelayMetrics.recordQueue(kClass, scopeName)
         }
     }
 
@@ -203,7 +219,13 @@ internal class KRelayInstanceImpl(
         evictByPriority: Boolean = false
     ) {
         val queue = pendingQueue.getOrPut(kClass) { mutableListOf() }
-        queue.removeAll { it.isExpired(actionExpiryMs) }
+        val now = currentTimeMillis()
+        val oldest = oldestEnqueuedMs[kClass]
+        if (queue.isNotEmpty() && (oldest == null || now - oldest > actionExpiryMs)) {
+            queue.removeAll { now - it.timestampMs > actionExpiryMs }
+            val remainingOldest = queue.minOfOrNull { it.timestampMs }
+            if (remainingOldest != null) oldestEnqueuedMs[kClass] = remainingOldest else oldestEnqueuedMs.remove(kClass)
+        }
 
         if (queue.size >= maxQueueSize) {
             if (evictByPriority && queue.isNotEmpty()) {
@@ -214,7 +236,7 @@ internal class KRelayInstanceImpl(
             }
             
             if (debugMode) {
-                log("[WARN] Queue full for ${kClass.simpleName}. Evicted ${if (evictByPriority) "lowest-priority" else "oldest"} action.")
+                logWarn("Queue full for ${kClass.simpleName}. Evicted ${if (evictByPriority) "lowest-priority" else "oldest"} action.")
             }
         }
 
@@ -226,6 +248,12 @@ internal class KRelayInstanceImpl(
         } else {
             queue.add(action)
         }
+        noteEnqueued(kClass, action.timestampMs)
+    }
+
+    private fun noteEnqueued(kClass: KClass<*>, timestampMs: Long) {
+        val current = oldestEnqueuedMs[kClass]
+        if (current == null || timestampMs < current) oldestEnqueuedMs[kClass] = timestampMs
     }
 
     /**
@@ -278,7 +306,7 @@ internal class KRelayInstanceImpl(
             if (debugMode) {
                 log("[CLEAR] Cleared queue for ${kClass.simpleName} ($count actions removed)")
             }
-            KRelayMetrics.recordClear(kClass, count)
+            KRelayMetrics.recordClear(kClass, count, scopeName)
         }
     }
 
@@ -405,6 +433,7 @@ internal class KRelayInstanceImpl(
             }
             registry.clear()
             pendingQueue.clear()
+            oldestEnqueuedMs.clear()
             actionFactories.clear()
             featureKeyToKClass.clear()
             _persistenceAdapter
@@ -429,7 +458,7 @@ internal class KRelayInstanceImpl(
         lock.withLock {
             featureKeyToKClass[featureKey] = kClass
             @Suppress("UNCHECKED_CAST")
-            actionFactories["$featureKey::$actionKey"] = factory as ActionFactory<*>
+            actionFactories[factoryKeyOf(featureKey, actionKey)] = factory as ActionFactory<*>
             if (debugMode) {
                 log("[FACTORY] Registered factory for $featureKey::$actionKey")
             }
@@ -454,13 +483,14 @@ internal class KRelayInstanceImpl(
         payload: String,
         priorityValue: Int
     ) {
-        val factoryKey = "$featureKey::$actionKey"
+        val factoryKey = factoryKeyOf(featureKey, actionKey)
+        val displayKey = "$featureKey::$actionKey"
 
         // Resolve factory and reconstruct block before acquiring the main lock.
         // factory() only produces a lambda — no I/O, safe to call outside lock.
         val factory = lock.withLock { actionFactories[factoryKey] } as? ActionFactory<T>
             ?: error(
-                "No factory registered for '$factoryKey'. " +
+                "No factory registered for '$displayKey'. " +
                 "Call instance.registerActionFactory<$featureKey>(\"$actionKey\") { payload -> { feature -> ... } } first."
             )
         val block = factory(payload)
@@ -490,7 +520,7 @@ internal class KRelayInstanceImpl(
         }
 
         if (impl != null) {
-            KRelayMetrics.recordDispatch(kClass)
+            KRelayMetrics.recordDispatch(kClass, scopeName)
             runOnMain {
                 try {
                     block(impl)
@@ -504,7 +534,7 @@ internal class KRelayInstanceImpl(
                 _persistenceAdapter.save(scopeName, featureKey, command)
                 if (debugMode) log("[PERSIST] Persisted $featureKey::$actionKey to storage")
             }
-            KRelayMetrics.recordQueue(kClass)
+            KRelayMetrics.recordQueue(kClass, scopeName)
         }
     }
 
@@ -552,7 +582,7 @@ internal class KRelayInstanceImpl(
             persistedMap.forEach featureLoop@{ (featureKey, commands) ->
                 val kClass = featureKeyToKClass[featureKey]
                 if (kClass == null) {
-                    if (debugMode) log("[WARN] No KClass for '$featureKey'. Register factory before restorePersistedActions().")
+                    if (debugMode) logWarn("No KClass for '$featureKey'. Register factory before restorePersistedActions().")
                     skippedNoFactory += commands.size
                     commands.forEach { toRemove.add(EnqueuedEntry(featureKey, it)) }
                     return@featureLoop
@@ -565,11 +595,11 @@ internal class KRelayInstanceImpl(
                         return@commandLoop
                     }
 
-                    val factoryKey = "$featureKey::${command.actionKey}"
+                    val factoryKey = factoryKeyOf(featureKey, command.actionKey)
                     @Suppress("UNCHECKED_CAST")
                     val factory = actionFactories[factoryKey] as? ActionFactory<Any>
                     if (factory == null) {
-                        if (debugMode) log("[WARN] No factory for '$factoryKey'. Skipping restored action.")
+                        if (debugMode) logWarn("No factory for '$featureKey::${command.actionKey}'. Skipping restored action.")
                         skippedNoFactory++
                         toRemove.add(EnqueuedEntry(featureKey, command))
                         return@commandLoop
@@ -583,6 +613,7 @@ internal class KRelayInstanceImpl(
                     val insertIndex = queue.binarySearch { queuedAction.priority.compareTo(it.priority) }
                         .let { if (it < 0) -(it + 1) else it }
                     queue.add(insertIndex, queuedAction)
+                    noteEnqueued(kClass, queuedAction.timestampMs)
 
                     toRemove.add(EnqueuedEntry(featureKey, command))
                     restoredCount++
@@ -606,7 +637,16 @@ internal class KRelayInstanceImpl(
      */
     @PublishedApi
     internal fun log(message: String) {
-        println("[KRelay][$scopeName] $message")
+        KRelayLog.emit(KRelayLogLevel.DEBUG, scopeName, message)
+    }
+
+    /**
+     * Internal logging function for warnings. Call sites decide whether to guard with
+     * `if (debugMode)`; the record is delivered to [KRelayLog.sink] at WARN level.
+     */
+    @PublishedApi
+    internal fun logWarn(message: String) {
+        KRelayLog.emit(KRelayLogLevel.WARN, scopeName, message)
     }
 
     /**
@@ -615,6 +655,6 @@ internal class KRelayInstanceImpl(
      */
     @PublishedApi
     internal fun logError(message: String) {
-        println("[KRelay][$scopeName][ERROR] $message")
+        KRelayLog.emit(KRelayLogLevel.ERROR, scopeName, message)
     }
 }

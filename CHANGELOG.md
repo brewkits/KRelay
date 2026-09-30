@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.0] - 2026-10-01
+
+### Added
+- **Structured logging**: `KRelayLog` with `KRelayLogLevel` (`DEBUG`/`INFO`/`WARN`/`ERROR`), a pluggable `KRelayLogSink` and a `minLevel` filter. Route KRelay output to Logcat, os_log, Timber, Datadog, etc. The default `ConsoleLogSink` prints to the console as before. A throwing sink never breaks dispatching.
+- **Metrics reporter**: `KRelayMetricsReporter` + `KRelayMetricEvent` / `KRelayMetricType`, registered via `KRelayMetrics.addReporter()` / `removeReporter()`. Receives dispatch, queue, replay, expiry and clear events for forwarding to Firebase Performance, Datadog or any custom backend. The core module stays dependency-free — no SDK exporters are bundled; see `docs/MONITORING.md`.
+- **`dispatchPersistedSuspend`** (`krelay-flow`): suspend overload of `dispatchPersisted` that runs factory lookup, queueing and the persistence write on `Dispatchers.Default`, so storage I/O never blocks the calling coroutine.
+
+- **Test coverage tooling**: Kover is applied to `krelay` (`./gradlew :krelay:koverHtmlReport`). Core sources (excluding the bundled `samples` package) are at ~90% line coverage on JVM.
+- **New test suites**: `performance/PerformanceTest` (throughput and scaling guards), `security/SecurityTest` (malformed/tampered persistence, key confusion, flooding, hostile callbacks) and `unit/CoverageGapTest` (singleton KClass entry points, error isolation, expiry, persistence restore edge cases, diagnostics).
+
+### Fixed
+- **Quadratic enqueue cost**: every enqueue scanned the whole queue for expired actions and read the clock per element. Queueing 20k actions took ~66 s on the iOS simulator (milliseconds on JVM). The sweep now runs only when the oldest queued action can actually have expired (~0.05 s for the same workload).
+- **Persisted-action factory key collision**: factories were looked up by `"$featureKey::$actionKey"`, so `("a", "b::c")` and `("a::b", "c")` shared one slot. Keys are now length-prefixed.
+- **`KRelay.getMetrics`-style internal helper omitted `cleared`**: `getMetricsInternal` (used for iOS interop) now reports the same five counters as `getMetrics<T>()`.
+- **`krelay-compose` instrumented tests did not compile** (missing test dependencies and runner); they now run (`connectedDebugAndroidTest`).
+- **Demo app**: implementations registered inline were garbage-collected (KRelay holds them weakly), so dispatches were queued; the selected demo was lost on rotation; `moko-permissions` 0.18.0 broke the Kotlin/Native 2.3 iOS link and was upgraded to 0.20.1 (modular API).
+- **Per-instance metrics were never populated**: `KRelayInstanceImpl` recorded metrics without its `scopeName`, so `KRelayMetrics.getInstanceMetrics(scope)` always returned an empty map. Dispatch, queue, replay and clear events are now attributed to their instance.
+- **Expired actions were never counted**: `recordExpiry` was never called; expired actions dropped on replay are now recorded.
+
+### Changed
+- **Toolchain**: Kotlin 2.1.0 → 2.3.21, Compose Multiplatform 1.8.0-alpha03 → 1.10.3, Decompose 3.4.0-alpha03 → 3.5.0. Public API dumps gained only compiler-generated synthetic `$default` entries.
+- **Security**: the stale JS `kotlin-js-store/yarn.lock` was removed; the wasm toolchain no longer resolves the vulnerable `qs`, `serialize-javascript` and `webpack` versions flagged by Dependabot (dev/test-only, never shipped).
+- **Warnings** are now logged as `[KRelay][scope][WARN] …` (previously `[KRelay][scope] [WARN] …`).
+- **CI/CD**: Maven Central publishing moved to the Central Portal OSSRH staging API (`s01.oss.sonatype.org` is retired); `github-release` now declares `needs: validate`; GitHub Actions bumped to Node 24-ready majors.
+
+---
+
 ## [2.2.0] - 2026-09-05
 
 ### Added

@@ -57,14 +57,20 @@
 
 ---
 
+### v2.3.0 — Observability & Ecosystem *(Oct 2026)*
+- **Structured logging**: `KRelayLog` with severity levels and pluggable `KRelayLogSink`
+- **Metrics reporter**: `KRelayMetricsReporter` for exporting to Firebase Performance, Datadog or custom sinks
+- **`dispatchPersistedSuspend`** in `krelay-flow`
+- Fixed per-instance metrics attribution and expiry counting
+- Kotlin 2.3.21 / Compose Multiplatform 1.10.3
+
+---
+
 ## 🔭 Planned
 
-### v2.3.0 — Observability & Ecosystem *(Q1 2027)*
-- `KRelayMetrics` reporter: export to Firebase Performance, Datadog, or custom sinks
-- **`dispatchPersistedSuspend`**: Suspend overload for `dispatchPersisted`, callable from coroutine scopes
-- **Library-specific integration modules** (community-driven): `krelay-moko`, `krelay-voyager`
-- Structured logging with configurable severity and sinks
-- Integration guide with popular monitoring tools
+### Community-driven
+- **Library-specific integration modules**: `krelay-moko`, `krelay-voyager` — contributions welcome
+- Ready-made Firebase / Datadog reporters as separate opt-in artifacts (core stays dependency-free)
 
 ### v3.0.0 — TBD *(2027+)*
 No breaking changes are currently planned. If a v3 happens, a full migration guide will be provided well in advance.
@@ -91,4 +97,4 @@ Issues, PRs, and discussions are welcome at [github.com/brewkits/KRelay](https:/
 
 ---
 
-**Current Version**: v2.2.0 · **Last Updated**: 2026-09-05
+**Current Version**: v2.3.0 · **Last Updated**: 2026-10-01
