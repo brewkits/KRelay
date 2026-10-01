@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Release publishing**: `scripts/build-maven-bundle.sh` builds every module into a single signed Maven bundle (one Central Portal deployment) and `release.yml` uses it. Per-module Gradle publishes left 12 artifacts (`krelay-testing*`, `krelay-bom`, `krelay-flow-android/iosarm64/iossimulatorarm64`, `krelay-compose-wasm-js`) out of the 2.3.0 deployment. See `docs/RELEASING.md`.
+
 ---
 
 ## [2.3.0] - 2026-10-01

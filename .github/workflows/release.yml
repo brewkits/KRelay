@@ -156,57 +156,22 @@ jobs:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
 
-      - name: Publish krelay
-        run: ./gradlew :krelay:publishAllPublicationsToOSSRHRepository --no-daemon
+      # One signed bundle for ALL modules -> one Central Portal deployment, validated and published
+      # together. (Per-module Gradle publishes left some artifacts out of the 2.3.0 deployment.)
+      - name: Build bundle and upload to Central Portal
+        run: scripts/build-maven-bundle.sh --upload automatic
         env:
-          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
 
-      - name: Publish krelay-flow
-        run: ./gradlew :krelay-flow:publishAllPublicationsToOSSRHRepository --no-daemon
-        env:
-          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-
-      - name: Publish krelay-compose
-        run: ./gradlew :krelay-compose:publishAllPublicationsToOSSRHRepository --no-daemon
-        env:
-          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-
-      - name: Publish krelay-testing
-        run: ./gradlew :krelay-testing:publishAllPublicationsToOSSRHRepository --no-daemon
-        env:
-          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-
-      - name: Publish krelay-bom
-        run: ./gradlew :krelay-bom:publishAllPublicationsToOSSRHRepository --no-daemon
-        env:
-          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-
-      # Legacy OSSRH (s01) was retired; uploads now land in the Central Portal
-      # staging API and must be handed over to the Portal to be published.
-      - name: Hand staged repository over to Central Portal
-        run: |
-          AUTH=$(printf '%s:%s' "$OSSRH_USERNAME" "$OSSRH_PASSWORD" | base64)
-          curl --fail-with-body -X POST \
-            -H "Authorization: Bearer $AUTH" \
-            "https://ossrh-staging-api.central.sonatype.com/manual/upload/defaultRepository/dev.brewkits?publishing_type=automatic"
-        env:
-          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+      - name: Upload bundle as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maven-bundle
+          path: krelay-v*-maven-bundle.zip
 
   # ──────────────────────────────────────────────────────────────────────────
   github-release:
