@@ -68,12 +68,35 @@
 
 ## 🔭 Planned
 
+### v2.4.0 — API hygiene, Release Confidence & Adapters *(Q1 2027, tentative)*
+Source- and binary-compatible with 2.3.x (guarded by `apiCheck`). Scope is a proposal, not a commitment.
+
+**API hygiene (non-breaking)**
+- Raise the deprecated two-argument `dispatchPersisted` / `registerActionFactory` overloads to `DeprecationLevel.ERROR`. A call such as `dispatchPersisted<T>("feature", "action")` silently binds to the deprecated overload instead of the explicit-`featureKey` one (found while writing 2.3.0 tests).
+- Deprecate the demo view models bundled in the core artifact (`dev.brewkits.krelay.samples`); they are shipped to every consumer and are the only untested code in `krelay`.
+
+**Quality gates**
+- Enforce a Kover coverage floor for `krelay` in CI (core is ~90% on JVM today).
+- Run the `krelay-compose` instrumented tests on an emulator in CI.
+- Track performance budgets over time (`PerformanceTest` currently only guards against regressions such as the O(n²) enqueue fixed in 2.3.0).
+
+**Release confidence**
+- Prove the single-bundle release pipeline (`scripts/build-maven-bundle.sh`) end to end and make the workflow wait for the Central Portal deployment to reach `PUBLISHED`.
+- Post-release smoke test: resolve every published artifact and the BOM from Maven Central.
+
+**Demo**
+- Resolve the 16 KB page-size warnings in the demo app's transitive native libraries (CameraX image-processing, `androidx.graphics.path`).
+
+**Adapters (opt-in artifacts; core stays dependency-free)**
+- First ready-made `KRelayMetricsReporter` / `KRelayLogSink` adapter (Firebase Performance or Datadog — to be decided from user feedback).
+
 ### Community-driven
 - **Library-specific integration modules**: `krelay-moko`, `krelay-voyager` — contributions welcome
-- Ready-made Firebase / Datadog reporters as separate opt-in artifacts (core stays dependency-free)
 
 ### v3.0.0 — TBD *(2027+)*
-No breaking changes are currently planned. If a v3 happens, a full migration guide will be provided well in advance.
+Only if the following breaking cleanups are worth a major version; a full migration guide will be provided well in advance:
+- Remove the deprecated `dispatchPersisted` / `registerActionFactory` overloads
+- Move the bundled `samples` package out of the core artifact
 
 ---
 
